@@ -72,12 +72,20 @@ Rules:
 - Never run `git push --force`, `git reset --hard` on shared history, or merge a branch yourself. I review and merge.
 - Never commit or push without my approval, unless I explicitly say otherwise for the session.
 
+Procedures that satisfy the commit message rules, tested in a throwaway sandbox:
+
+- Release and hotfix merges, which I run myself and you never run: `git merge --no-ff -m "chore(release): x.y.z" <branch>`. The explicit message is required, a plain `git merge` is rejected.
+- A rejected merge leaves the merge in progress, so I run `git merge --abort` before retrying. You never run a merge command either.
+- Sync a branch with `git pull --rebase`. Do not rely on a plain `git pull`: on diverged branches it may refuse instead of merging, depending on the Git version, and when it merges it produces a message the hook rejects.
+- Revert with `git revert --no-commit <commit>`, then `git commit` with a message of the form `revert(scope): <description>`. `git revert -e` is not checked by the local hook, so the CI check is the only gate on its message.
+- Experiments that need a remote use a throwaway repository created with `git init` under `/tmp`, never a clone of this repository, and the remote URL is checked before any push.
+
 ## 7. Commits (Conventional Commits, no exception)
 
 Every commit message must follow Conventional Commits 1.0:
 
 ```
-<type>(<scope>): <description>
+<type>[(scope)]: <description>
 
 [optional body]
 
@@ -85,11 +93,12 @@ Every commit message must follow Conventional Commits 1.0:
 ```
 
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-- Scopes (examples): `backend`, `frontend`, `api`, `auth`, `github`, `cache`, `security`, `ci`, `deps`, `docs`
-- Description: English, imperative mood, lowercase start, no trailing period, 72 characters maximum
-- Breaking change: add `!` after the type or scope and a `BREAKING CHANGE:` footer
+- Scope: optional. When present it must be a lowercase token.
+- Scopes (examples): `backend`, `frontend`, `api`, `auth`, `github`, `cache`, `security`, `ci`, `deps`, `docs`, `repo`, `env`, `hooks`, `agents`, `readme`
+- Subject: English, imperative mood, description starting lowercase, no trailing period, 72 characters maximum for the whole subject line (`<type>[(scope)]: <description>`)
+- Breaking change: add an optional `!` after the type or scope and a `BREAKING CHANGE:` footer
 - One logical change per commit. Every commit leaves the build and the tests green.
-- Commit messages are checked by `.githooks/commit-msg` and by CI. A rejected message must be fixed, never bypassed (`--no-verify` is forbidden).
+- Commit messages are checked by `.githooks/commit-msg`, and by CI once CI is added. A rejected message must be fixed, never bypassed (`--no-verify` is forbidden).
 
 Examples: `feat(github): add repository client with token from env`, `test(api): cover unauthorized access to admin endpoints`, `fix(frontend): escape project description on render`.
 

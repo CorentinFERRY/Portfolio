@@ -1,0 +1,80 @@
+#!/bin/sh
+#
+# Rejects commit messages that do not follow Conventional Commits 1.0,
+# as specified in AGENTS.md section 7. Enable it with:
+#   git config core.hooksPath .githooks
+#
+# Takes the path of the file holding the proposed message. The same script can
+# check a message outside Git, for example in CI: sh .githooks/commit-msg <file>
+
+set -u
+
+# Pin character ranges and byte counts to the C locale so the checks behave
+# identically on every machine.
+LC_ALL=C
+export LC_ALL
+
+max_length=72
+types='feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert'
+pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9][a-z0-9._/-]*\))?(!)?: [a-z0-9][ -~]*$'
+
+reject() {
+	printf 'commit-msg: %s\n' "$1" >&2
+}
+
+message_file=${1:-}
+
+if [ -z "$message_file" ]; then
+	reject 'missing commit message file'
+	printf 'commit-msg: usage: commit-msg <file>\n' >&2
+	exit 1
+fi
+
+if [ ! -f "$message_file" ] || [ ! -r "$message_file" ]; then
+	reject "cannot read commit message file: $message_file"
+	exit 1
+fi
+
+# Only the subject is checked: AGENTS.md section 7 puts no rule on the body or
+# the footers.
+subject=$(sed -n '1p' "$message_file" | tr -d '\r')
+violations=0
+
+if [ -z "$subject" ]; then
+	reject 'the subject line is empty'
+	violations=$((violations + 1))
+elif ! printf '%s\n' "$subject" | grep -Eq "$pattern"; then
+	reject "the subject does not follow <type>[(scope)][!]: <description>: $subject"
+	printf 'commit-msg:   types: %s\n' "$types" >&2
+	printf 'commit-msg:   scope: optional, lowercase token\n' >&2
+	violations=$((violations + 1))
+fi
+
+case "$subject" in
+	*.)
+		reject 'the subject must not end with a period'
+		violations=$((violations + 1))
+		;;
+esac
+
+case "$subject" in
+	*' ')
+		reject 'the subject must not end with a space'
+		violations=$((violations + 1))
+		;;
+esac
+
+# The pattern only accepts printable ASCII, so bytes and characters are equal
+# for any subject that gets this far.
+length=$(printf '%s' "$subject" | wc -c | tr -d ' ')
+if [ "$length" -gt "$max_length" ]; then
+	reject "the subject is $length characters long, the maximum is $max_length"
+	violations=$((violations + 1))
+fi
+
+if [ "$violations" -ne 0 ]; then
+	printf 'commit-msg: see AGENTS.md section 7, --no-verify is forbidden\n' >&2
+	exit 1
+fi
+
+exit 0
