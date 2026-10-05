@@ -74,8 +74,8 @@ Rules:
 
 Procedures that satisfy the commit message rules, tested in a throwaway sandbox:
 
-- Release and hotfix merges, which you run yourself and I never run: `git merge --no-ff -m "chore(release): x.y.z" <branch>`. The explicit message is required, a plain `git merge` is rejected.
-- A rejected merge leaves the merge in progress, so you run `git merge --abort` before retrying. I never run a merge command either.
+- Release and hotfix merges, which I run myself and you never run: `git merge --no-ff -m "chore(release): x.y.z" <branch>`. The explicit message is required, a plain `git merge` is rejected.
+- A rejected merge leaves the merge in progress, so I run `git merge --abort` before retrying. You never run a merge command either.
 - Sync a branch with `git pull --rebase`. Do not rely on a plain `git pull`: on diverged branches it may refuse instead of merging, depending on the Git version, and when it merges it produces a message the hook rejects.
 - Revert with `git revert --no-commit <commit>`, then `git commit` with a message of the form `revert(scope): <description>`. `git revert -e` is not checked by the local hook, so the CI check is the only gate on its message.
 - Experiments that need a remote use a throwaway repository created with `git init` under `/tmp`, never a clone of this repository, and the remote URL is checked before any push.
