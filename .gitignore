@@ -1,0 +1,76 @@
+# Java / Maven
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+*.log
+dependency-reduced-pom.xml
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+hs_err_pid*
+replay_pid*
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+.cache/
+*.tsbuildinfo
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+nbproject/
+.metadata/
+*.swp
+.*.sw?
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.directory
+
+# Local databases: H2 files created by a local backend run
+*.mv.db
+*.trace.db
+
+# Local Spring configuration: developer overrides, never shared
+application-local.*
+
+# Secrets and keys: must never reach the repository
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+
+# Environment files: never commit real values
+.env
+.env.*
+!.env.example
