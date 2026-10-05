@@ -77,7 +77,7 @@ Rules:
 Every commit message must follow Conventional Commits 1.0:
 
 ```
-<type>(<scope>): <description>
+<type>[(scope)]: <description>
 
 [optional body]
 
@@ -85,11 +85,12 @@ Every commit message must follow Conventional Commits 1.0:
 ```
 
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-- Scopes (examples): `backend`, `frontend`, `api`, `auth`, `github`, `cache`, `security`, `ci`, `deps`, `docs`
-- Description: English, imperative mood, lowercase start, no trailing period, 72 characters maximum
-- Breaking change: add `!` after the type or scope and a `BREAKING CHANGE:` footer
+- Scope: optional. When present it must be a lowercase token.
+- Scopes (examples): `backend`, `frontend`, `api`, `auth`, `github`, `cache`, `security`, `ci`, `deps`, `docs`, `repo`, `env`, `hooks`, `agents`, `readme`
+- Subject: English, imperative mood, description starting lowercase, no trailing period, 72 characters maximum for the whole subject line (`<type>[(scope)]: <description>`)
+- Breaking change: add an optional `!` after the type or scope and a `BREAKING CHANGE:` footer
 - One logical change per commit. Every commit leaves the build and the tests green.
-- Commit messages are checked by `.githooks/commit-msg` and by CI. A rejected message must be fixed, never bypassed (`--no-verify` is forbidden).
+- Commit messages are checked by `.githooks/commit-msg`, and by CI once CI is added. A rejected message must be fixed, never bypassed (`--no-verify` is forbidden).
 
 Examples: `feat(github): add repository client with token from env`, `test(api): cover unauthorized access to admin endpoints`, `fix(frontend): escape project description on render`.
 
