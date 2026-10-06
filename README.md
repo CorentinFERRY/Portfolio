@@ -30,13 +30,18 @@ AGENTS.md   Conventions and rules for AI coding agents working in this repositor
 `AGENTS.md` holds the conventions and rules that any AI coding agent working in
 this repository must follow.
 
-`backend/` and `frontend/` are placeholders until slice 1. Technical decisions
-are recorded as short notes in `docs/decisions/`.
+`backend/` is the Spring Boot skeleton and `frontend/` is still a placeholder.
+Technical decisions are recorded as short notes in `docs/decisions/`.
+
+## Prerequisites
+
+- Java 21. Maven is not needed: the Maven wrapper is committed, so `./mvnw` in
+  `backend/` downloads and runs the required Maven version.
 
 ## Commands
 
-Filled in during slice 1 and kept in AGENTS.md section 4. Always use the exact
-commands recorded there.
+The commands are kept in AGENTS.md section 4; always use the exact commands
+recorded there.
 
 ## Getting started
 
