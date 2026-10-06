@@ -30,6 +30,7 @@ docs/       Documentation and decisions
 - Later: Docker, GitHub Actions CI, Playwright (E2E)
 
 Do not add a dependency, framework or tool that is not listed here without asking first.
+Spring Boot is 4.1.1: do not rely on Spring Boot 3 knowledge, and resolve imports and APIs against the generated jars and the spring.io documentation.
 
 ## 4. Commands
 
