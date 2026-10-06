@@ -54,6 +54,7 @@ Rules:
 - If the request is ambiguous or a decision is needed, ask. Do not choose silently.
 - If you deviate from the plan, say so and explain why.
 - Explain non-obvious design choices briefly, so I can learn from them.
+- Long-running processes, such as a smoke test, are started as a single process (for example `java -jar` on the packaged jar); capture its PID, stop that PID only, then verify that the port is free.
 
 ## 6. Git workflow (Gitflow)
 
@@ -184,4 +185,4 @@ A slice is done only if all of these are true:
 
 **Ask first**: new dependency, schema change, architecture change, CI or hook configuration change, anything touching authentication or security, any commit or push.
 
-**Never**: touch `.env`, commit secrets, push to `main` or `develop`, force push, merge, use `--no-verify`, weaken a test, use `v-html` on external content, call GitHub from the browser, expand scope beyond the current slice.
+**Never**: touch `.env`, commit secrets, push to `main` or `develop`, force push, merge, use `--no-verify`, weaken a test, use `v-html` on external content, call GitHub from the browser, expand scope beyond the current slice, stop a process by name (`pkill`, `killall` or process-name patterns).
