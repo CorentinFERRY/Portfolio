@@ -33,10 +33,11 @@ Do not add a dependency, framework or tool that is not listed here without askin
 
 ## 4. Commands
 
-Fill this section during slice 1, and keep it up to date. Always use these exact commands.
+Keep this section up to date. Always use these exact commands.
 
-- Backend tests: `TO FILL`
-- Backend run: `TO FILL`
+- Backend tests: `cd backend && ./mvnw test`
+- Backend full build: `cd backend && ./mvnw clean verify`
+- Backend run: `cd backend && ./mvnw spring-boot:run`
 - Frontend install / tests / dev / build: `TO FILL`
 
 ## 5. How to work
