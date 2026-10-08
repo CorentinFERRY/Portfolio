@@ -24,6 +24,7 @@ backend/    Spring Boot API
 frontend/   Vue 3 application
 docs/       Documentation and decisions
 .githooks/  Git hooks (commit message check)
+.github/    GitHub Actions workflow
 AGENTS.md   Conventions and rules for AI coding agents working in this repository
 ```
 
@@ -95,7 +96,7 @@ for a breaking change. A rejected message must be fixed, never bypassed:
 `.githooks/commit-msg` rejects any subject that does not follow the rules above.
 It needs only a POSIX shell and the standard utilities `sed`, `tr`, `grep` and
 `wc`, which are available wherever Git is normally installed. The same script
-checks a message file outside Git, which is how CI will reuse it.
+checks a message file outside Git, which is how CI reuses it.
 
 Enable it once per clone:
 
@@ -112,7 +113,7 @@ git rev-parse --git-path hooks/commit-msg
 ```
 
 The hook is not the only gate. A clone can have it disabled or bypassed, so the
-CI check planned in AGENTS.md section 7 is the enforcing gate and the hook gives
+CI check in AGENTS.md section 7 is the enforcing gate and the hook gives
 early feedback. The reasoning is recorded in
 `docs/decisions/0001-conventional-commit-hook.md`.
 
@@ -123,6 +124,29 @@ Two things the hook does not cover, both documented in AGENTS.md section 6:
   `git commit` when you want the local check.
 - A plain `git pull` may refuse on diverged branches or merge and produce a
   message the hook rejects. Use `git pull --rebase`.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on pushes and pull requests to `develop` and
+`main`, with two jobs:
+
+- `check-commits` runs both script test suites, then checks every commit
+  message of the event range with `.github/scripts/check-commits.sh`, which
+  reuses the hook above. On a pull request it also checks the title as GitHub
+  will write it after the squash merge.
+- `backend-build` runs `./mvnw clean verify` in `backend/` with Java 21.
+
+Both suites run locally with:
+
+```sh
+sh .githooks/commit-msg.test.sh
+sh .github/scripts/check-commits.test.sh
+```
+
+The workflow uses no repository secret, only the automatic read-only token
+used by the checkout and the Java setup actions; the values of the event
+reach the script through environment variables only. The reasoning is recorded in
+`docs/decisions/0003-ci-workflow.md`.
 
 ## Security
 

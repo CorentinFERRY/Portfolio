@@ -52,3 +52,10 @@ Alternatives rejected:
 - A local hook can be bypassed, or never enabled in a clone at all. The CI check
   planned in AGENTS.md section 7 is therefore the enforcing gate, and the hook
   gives early feedback before the commit leaves the machine.
+
+## Note 2026-10-08
+
+The CI check anticipated above now exists. `.github/workflows/ci.yml` runs the
+message checks through `.github/scripts/check-commits.sh`, which feeds every
+message to this same script, so the rules still live in one place. The design
+is recorded in `docs/decisions/0003-ci-workflow.md`.
