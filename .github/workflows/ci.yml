@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+    # edited re-runs the check when the pull request title is corrected.
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check-commits:
+    name: check-commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run script tests
+        run: |
+          sh .githooks/commit-msg.test.sh
+          sh .github/scripts/check-commits.test.sh
+      - name: Check push commits
+        if: github.event_name == 'push'
+        env:
+          CHECK_BASE: ${{ github.event.before }}
+          CHECK_HEAD: ${{ github.event.after }}
+        run: sh .github/scripts/check-commits.sh
+      - name: Check pull request
+        if: github.event_name == 'pull_request'
+        env:
+          CHECK_BASE: ${{ github.event.pull_request.base.sha }}
+          CHECK_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: sh .github/scripts/check-commits.sh
+
+  backend-build:
+    name: backend-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build and test
+        working-directory: backend
+        run: ./mvnw clean verify
