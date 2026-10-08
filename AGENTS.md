@@ -19,6 +19,7 @@ backend/    Spring Boot API
 frontend/   Vue 3 application
 docs/       Documentation and decisions
 .githooks/  Local Git hooks (commit message check)
+.github/    GitHub Actions workflow
 ```
 
 ## 3. Stack
@@ -27,7 +28,7 @@ docs/       Documentation and decisions
 - Cache: Spring Cache with Caffeine (in memory).
 - Database: H2 for early slices, then PostgreSQL
 - Frontend: Vue 3 (Composition API, `<script setup>`), Vite, Pinia, Vue Router, Axios, Vitest, Vue Test Utils. TypeScript.
-- Later: Docker, GitHub Actions CI, Playwright (E2E)
+- Later: Docker, Playwright (E2E)
 
 Do not add a dependency, framework or tool that is not listed here without asking first.
 Spring Boot is 4.1.1: do not rely on Spring Boot 3 knowledge, and resolve imports and APIs against the generated jars and the spring.io documentation.
@@ -39,6 +40,7 @@ Keep this section up to date. Always use these exact commands.
 - Backend tests: `cd backend && ./mvnw test`
 - Backend full build: `cd backend && ./mvnw clean verify`
 - Backend run: `cd backend && ./mvnw spring-boot:run`
+- Script tests: `sh .githooks/commit-msg.test.sh` and `sh .github/scripts/check-commits.test.sh`, the tests of the hook and of the CI scripts, to run whenever those files change
 - Frontend install / tests / dev / build: `TO FILL`
 
 ## 5. How to work
@@ -53,6 +55,7 @@ Rules:
 
 - Do only what the current slice asks. No bonus features, no unrequested refactors, no unrelated file changes.
 - If the request is ambiguous or a decision is needed, ask. Do not choose silently.
+- If the context was compacted, restate the current step and the pending approvals and wait for my confirmation before writing code.
 - If you deviate from the plan, say so and explain why.
 - Explain non-obvious design choices briefly, so I can learn from them.
 - Long-running processes, such as a smoke test, are started as a single process (for example `java -jar` on the packaged jar); capture its PID, stop that PID only, then verify that the port is free.
@@ -101,7 +104,7 @@ Every commit message must follow Conventional Commits 1.0:
 - Subject: English, imperative mood, description starting lowercase, no trailing period, 72 characters maximum for the whole subject line (`<type>[(scope)]: <description>`)
 - Breaking change: add an optional `!` after the type or scope and a `BREAKING CHANGE:` footer
 - One logical change per commit. Every commit leaves the build and the tests green.
-- Commit messages are checked by `.githooks/commit-msg`, and by CI once CI is added. A rejected message must be fixed, never bypassed (`--no-verify` is forbidden).
+- Commit messages are checked by `.githooks/commit-msg` and by CI. A rejected message must be fixed, never bypassed (`--no-verify` is forbidden).
 
 Examples: `feat(github): add repository client with token from env`, `test(api): cover unauthorized access to admin endpoints`, `fix(frontend): escape project description on render`.
 
