@@ -55,6 +55,7 @@ Rules:
 
 - Do only what the current slice asks. No bonus features, no unrequested refactors, no unrelated file changes.
 - If the request is ambiguous or a decision is needed, ask. Do not choose silently.
+- If the context was compacted, restate the current step and the pending approvals and wait for my confirmation before writing code.
 - If you deviate from the plan, say so and explain why.
 - Explain non-obvious design choices briefly, so I can learn from them.
 - Long-running processes, such as a smoke test, are started as a single process (for example `java -jar` on the packaged jar); capture its PID, stop that PID only, then verify that the port is free.
