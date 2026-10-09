@@ -1,13 +1,24 @@
 package io.github.corentinferry.github.client;
 
 import io.github.corentinferry.github.GithubProperties;
+import io.github.corentinferry.github.exception.GithubAccessDeniedException;
+import io.github.corentinferry.github.exception.GithubAuthenticationFailureException;
+import io.github.corentinferry.github.exception.GithubOwnerNotFoundException;
 import io.github.corentinferry.github.exception.GithubPaginationViolationException;
+import io.github.corentinferry.github.exception.GithubRateLimitExceededException;
 import io.github.corentinferry.github.exception.GithubUnexpectedResponseException;
+import io.github.corentinferry.github.exception.GithubUnavailableException;
 import io.github.corentinferry.github.model.GithubRepository;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +45,13 @@ public class DefaultGithubApiClient implements GithubApiClient {
 	}
 
 	private static RestClient createRestClient(GithubProperties properties) {
-		org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+		SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+			@Override
+			protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+				super.prepareConnection(connection, httpMethod);
+				connection.setInstanceFollowRedirects(false);
+			}
+		};
 		factory.setConnectTimeout(properties.getConnectTimeout());
 		factory.setReadTimeout(properties.getReadTimeout());
 		return RestClient.builder().requestFactory(factory).build();
@@ -54,22 +71,76 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			pages++;
 			URI uri = URI.create(nextUrl);
 			ensureSameOrigin(baseUri, uri);
-			var response = restClient.get()
-					.uri(uri)
-					.header("Authorization", "Bearer " + properties.getToken())
-					.header("User-Agent", "portfolio-backend")
-					.header("X-GitHub-Api-Version", GithubProperties.GITHUB_API_VERSION)
-					.retrieve()
-					.toEntity(String.class);
-			String body = response.getBody() == null ? "[]" : response.getBody();
-			all.addAll(parse(body));
-			String link = response.getHeaders().getFirst("Link");
-			nextUrl = extractNext(link);
+			try {
+				ResponseEntity<String> response = restClient.get()
+						.uri(uri)
+						.header("Authorization", "Bearer " + properties.getToken())
+						.header("User-Agent", "portfolio-backend")
+						.header("X-GitHub-Api-Version", GithubProperties.GITHUB_API_VERSION)
+						.retrieve()
+						.toEntity(String.class);
+				HttpStatusCode status = response.getStatusCode();
+				int code = status.value();
+				if (code >= 300 && code < 400) {
+					throw new GithubUnexpectedResponseException("Unexpected response");
+				}
+				String body = response.getBody() == null ? "[]" : response.getBody();
+				all.addAll(parse(body));
+				String link = response.getHeaders().getFirst("Link");
+				nextUrl = extractNext(link);
+			} catch (RestClientResponseException e) {
+				throw mapException(e);
+			} catch (Exception e) {
+				throw new GithubUnexpectedResponseException("Unexpected response");
+			}
 		}
 		if (nextUrl != null) {
 			throw new GithubPaginationViolationException("Pagination violation");
 		}
 		return all;
+	}
+
+	private RuntimeException mapException(RestClientResponseException e) {
+		HttpStatusCode status = e.getStatusCode();
+		int code = status.value();
+		if (code == 401) {
+			return new GithubAuthenticationFailureException("Authentication failure");
+		}
+		if (code == 403) {
+			String remaining = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("x-ratelimit-remaining") : null;
+			String retryAfter = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("Retry-After") : null;
+			String reset = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("x-ratelimit-reset") : null;
+			if ("0".equals(remaining) || retryAfter != null) {
+				Long resetVal = null;
+				try {
+					if (reset != null) resetVal = Long.parseLong(reset);
+				} catch (Exception ex) {
+					resetVal = null;
+				}
+				return new GithubRateLimitExceededException("Rate limit exceeded", resetVal);
+			}
+			return new GithubAccessDeniedException("Access denied");
+		}
+		if (code == 404) {
+			return new GithubOwnerNotFoundException("Owner not found");
+		}
+		if (code == 429) {
+			String reset = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("x-ratelimit-reset") : null;
+			Long resetVal = null;
+			try {
+				if (reset != null) resetVal = Long.parseLong(reset);
+			} catch (Exception ex) {
+				resetVal = null;
+			}
+			return new GithubRateLimitExceededException("Rate limit exceeded", resetVal);
+		}
+		if (code >= 500) {
+			return new GithubUnavailableException("Unavailable");
+		}
+		if (code >= 300 && code < 400) {
+			return new GithubUnexpectedResponseException("Unexpected response");
+		}
+		return new GithubUnexpectedResponseException("Unexpected response");
 	}
 
 	private void ensureSameOrigin(URI base, URI candidate) {
