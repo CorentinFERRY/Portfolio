@@ -159,3 +159,26 @@ reach the script through environment variables only. The reasoning is recorded i
   databases and `application-local.*` are ignored by `.gitignore`.
 
 The full security rules are in AGENTS.md section 9.
+
+## Environment variables
+
+The backend reads the GitHub API credentials from environment variables (loaded server-side only). Spring Boot does not automatically load a `.env` file. To load them in a shell, use:
+
+```sh
+# In a separate terminal
+set -a
+. .env  # or your environment file
+set +a
+
+cd backend
+./mvnw spring-boot:run
+```
+
+Required variables (documented with fake values in `.env.example` only):
+- `GITHUB_API_TOKEN`: fine-grained, read-only token for the GitHub API (never committed)
+- `GITHUB_OWNER`: GitHub account/owner to list public repositories for
+- `GITHUB_API_BASE_URL`: optional, defaults to https://api.github.com
+- `GITHUB_CONNECT_TIMEOUT_MS`: optional
+- `GITHUB_READ_TIMEOUT_MS`: optional
+
+Never commit `.env` files. Tokens must never appear in frontend, logs, API responses, tests or Git history.
