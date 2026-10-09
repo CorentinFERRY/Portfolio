@@ -1,6 +1,7 @@
 package io.github.corentinferry.github.client;
 
 import io.github.corentinferry.github.GithubProperties;
+import io.github.corentinferry.github.exception.GithubPaginationViolationException;
 import io.github.corentinferry.github.exception.GithubUnexpectedResponseException;
 import io.github.corentinferry.github.model.GithubRepository;
 import org.springframework.web.client.RestClient;
@@ -10,8 +11,13 @@ import tools.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DefaultGithubApiClient implements GithubApiClient {
+
+	private static final int MAX_PAGES = 10;
+	private static final Pattern LINK_PATTERN = Pattern.compile("<([^>]+)>;\\s*rel=\"next\"");
 
 	private final GithubProperties properties;
 	private final RestClient restClient;
@@ -40,23 +46,69 @@ public class DefaultGithubApiClient implements GithubApiClient {
 		if (base.endsWith("/")) {
 			base = base.substring(0, base.length() - 1);
 		}
-		String url = base + "/users/" + properties.getOwner() + "/repos";
-		URI uri = URI.create(url);
-		String body = restClient.get()
-				.uri(uriBuilder -> uriBuilder.scheme(uri.getScheme()).host(uri.getHost()).port(uri.getPort())
-						.path(uri.getPath())
-						.queryParam("type", "owner")
-						.queryParam("sort", "pushed")
-						.queryParam("direction", "desc")
-						.queryParam("per_page", "100")
-						.queryParam("page", "1")
-						.build())
-				.header("Authorization", "Bearer " + properties.getToken())
-				.header("User-Agent", "portfolio-backend")
-				.header("X-GitHub-Api-Version", GithubProperties.GITHUB_API_VERSION)
-				.retrieve()
-				.body(String.class);
-		return parse(body);
+		URI baseUri = URI.create(base);
+		String nextUrl = base + "/users/" + properties.getOwner() + "/repos?type=owner&sort=pushed&direction=desc&per_page=100&page=1";
+		List<GithubRepository> all = new ArrayList<>();
+		int pages = 0;
+		while (nextUrl != null && pages < MAX_PAGES) {
+			pages++;
+			URI uri = URI.create(nextUrl);
+			ensureSameOrigin(baseUri, uri);
+			var response = restClient.get()
+					.uri(uri)
+					.header("Authorization", "Bearer " + properties.getToken())
+					.header("User-Agent", "portfolio-backend")
+					.header("X-GitHub-Api-Version", GithubProperties.GITHUB_API_VERSION)
+					.retrieve()
+					.toEntity(String.class);
+			String body = response.getBody() == null ? "[]" : response.getBody();
+			all.addAll(parse(body));
+			String link = response.getHeaders().getFirst("Link");
+			nextUrl = extractNext(link);
+		}
+		if (nextUrl != null) {
+			throw new GithubPaginationViolationException("Pagination violation");
+		}
+		return all;
+	}
+
+	private void ensureSameOrigin(URI base, URI candidate) {
+		if (candidate.getScheme() == null || base.getScheme() == null || !candidate.getScheme().equals(base.getScheme())) {
+			throw new GithubPaginationViolationException("Pagination violation");
+		}
+		String ch = candidate.getHost();
+		String bh = base.getHost();
+		if (ch == null || bh == null || !ch.equals(bh)) {
+			throw new GithubPaginationViolationException("Pagination violation");
+		}
+		int cp = candidate.getPort();
+		int bp = base.getPort();
+		int cpn = (cp == -1) ? getDefaultPort(candidate.getScheme()) : cp;
+		int bpn = (bp == -1) ? getDefaultPort(base.getScheme()) : bp;
+		if (cpn != bpn) {
+			throw new GithubPaginationViolationException("Pagination violation");
+		}
+	}
+
+	private int getDefaultPort(String scheme) {
+		if ("https".equals(scheme)) {
+			return 443;
+		}
+		if ("http".equals(scheme)) {
+			return 80;
+		}
+		return -1;
+	}
+
+	private String extractNext(String link) {
+		if (link == null || link.isBlank()) {
+			return null;
+		}
+		Matcher m = LINK_PATTERN.matcher(link);
+		if (m.find()) {
+			return m.group(1);
+		}
+		return null;
 	}
 
 	private List<GithubRepository> parse(String body) {
@@ -132,14 +184,14 @@ public class DefaultGithubApiClient implements GithubApiClient {
 		}
 		long id = node.get("id").longValue();
 		String name = node.get("name").asString();
-		String description = node.has("description") && node.get("description").isNull() ? null : (node.has("description") && node.get("description").isTextual() ? node.get("description").asString() : null);
+		String description = (node.has("description") && node.get("description").isNull()) ? null : (node.has("description") && node.get("description").isTextual() ? node.get("description").asString() : null);
 		String htmlUrl = node.get("html_url").asString();
-		String homepage = node.has("homepage") && node.get("homepage").isNull() ? null : (node.has("homepage") && node.get("homepage").isTextual() ? node.get("homepage").asString() : null);
-		String language = node.has("language") && node.get("language").isNull() ? null : (node.has("language") && node.get("language").isTextual() ? node.get("language").asString() : null);
+		String homepage = (node.has("homepage") && node.get("homepage").isNull()) ? null : (node.has("homepage") && node.get("homepage").isTextual() ? node.get("homepage").asString() : null);
+		String language = (node.has("language") && node.get("language").isNull()) ? null : (node.has("language") && node.get("language").isTextual() ? node.get("language").asString() : null);
 		long stargazersCount = node.get("stargazers_count").longValue();
 		boolean fork = node.get("fork").asBoolean();
 		boolean archived = node.get("archived").asBoolean();
-		String pushedAt = node.has("pushed_at") && node.get("pushed_at").isNull() ? null : (node.has("pushed_at") && node.get("pushed_at").isTextual() ? node.get("pushed_at").asString() : null);
+		String pushedAt = (node.has("pushed_at") && node.get("pushed_at").isNull()) ? null : (node.has("pushed_at") && node.get("pushed_at").isTextual() ? node.get("pushed_at").asString() : null);
 		return new GithubRepository(id, name, description, htmlUrl, homepage, language, topics, stargazersCount, fork, archived, pushedAt);
 	}
 }
