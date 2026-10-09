@@ -1,0 +1,6 @@
+github:
+  token: test-token
+  owner: testowner
+  api-base-url: https://api.github.com
+  connect-timeout: 3000
+  read-timeout: 5000
