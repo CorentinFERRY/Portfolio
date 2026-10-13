@@ -97,10 +97,6 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			} catch (RestClientResponseException e) {
 				throw mapException(e);
 			} catch (ResourceAccessException e) {
-				Throwable cause = e.getCause();
-				if (cause instanceof SocketTimeoutException || cause instanceof ConnectException || cause instanceof IOException) {
-					throw new GithubUnavailableException("Unavailable");
-				}
 				throw new GithubUnavailableException("Unavailable");
 			} catch (io.github.corentinferry.github.exception.GithubApiException e) {
 				throw e;
