@@ -39,4 +39,23 @@ public class LogCapture {
 		}
 		return false;
 	}
+
+	public static boolean containsClassName(List<ILoggingEvent> events, String className) {
+		if (className == null) return false;
+		for (ILoggingEvent e : events) {
+			String msg = e.getFormattedMessage();
+			if (msg != null && msg.contains(className)) {
+				return true;
+			}
+			Object[] args = e.getArgumentArray();
+			if (args != null) {
+				for (Object a : args) {
+					if (a != null && a.toString().contains(className)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
 }

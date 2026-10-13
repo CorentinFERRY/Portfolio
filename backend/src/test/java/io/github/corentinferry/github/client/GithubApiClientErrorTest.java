@@ -124,4 +124,68 @@ class GithubApiClientErrorTest {
 		GithubApiClient client = new DefaultGithubApiClient(props);
 		assertThrows(GithubUnexpectedResponseException.class, () -> client.listPublicRepositories());
 	}
+
+	@Test
+	void throwsUnavailableOnReadTimeout() {
+		ListAppender<ILoggingEvent> appender = LogCapture.start(DefaultGithubApiClient.class);
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
+				.willReturn(aResponse().withStatus(200).withFixedDelay(500).withBody("[]")));
+		GithubProperties timeoutProps = new GithubProperties("secret-token", "fictional-owner",
+				"http://localhost:" + server.port(), 1000, 100);
+		GithubApiClient client = new DefaultGithubApiClient(timeoutProps);
+		assertThrows(GithubUnavailableException.class, () -> client.listPublicRepositories());
+		assertFalse(LogCapture.containsToken(appender.list, "secret-token"));
+		LogCapture.stop(DefaultGithubApiClient.class, appender);
+	}
+
+	@Test
+	void throwsUnavailableOnConnectionRefused() throws Exception {
+		ListAppender<ILoggingEvent> appender = LogCapture.start(DefaultGithubApiClient.class);
+		com.github.tomakehurst.wiremock.WireMockServer temp = new com.github.tomakehurst.wiremock.WireMockServer(
+				com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig().dynamicPort());
+		temp.start();
+		int port = temp.port();
+		temp.stop();
+		// Retry once if port was taken quickly by another process
+		try {
+			GithubProperties refusedProps = new GithubProperties("secret-token", "fictional-owner",
+					"http://localhost:" + port, 1000, 2000);
+			GithubApiClient client = new DefaultGithubApiClient(refusedProps);
+			assertThrows(GithubUnavailableException.class, () -> client.listPublicRepositories());
+		} catch (Exception e) {
+			com.github.tomakehurst.wiremock.WireMockServer temp2 = new com.github.tomakehurst.wiremock.WireMockServer(
+					com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig().dynamicPort());
+			temp2.start();
+			port = temp2.port();
+			temp2.stop();
+			GithubProperties refusedProps = new GithubProperties("secret-token", "fictional-owner",
+					"http://localhost:" + port, 1000, 2000);
+			GithubApiClient client = new DefaultGithubApiClient(refusedProps);
+			assertThrows(GithubUnavailableException.class, () -> client.listPublicRepositories());
+		}
+		assertFalse(LogCapture.containsToken(appender.list, "secret-token"));
+		LogCapture.stop(DefaultGithubApiClient.class, appender);
+	}
+
+	@Test
+	void unexpectedFailureLogsClassNameOnly() {
+		ListAppender<ILoggingEvent> appender = LogCapture.start(DefaultGithubApiClient.class);
+		GithubProperties props = new GithubProperties("secret-token", "fictional-owner", "http://localhost:1", 1000, 1000);
+		DefaultGithubApiClient client = new DefaultGithubApiClient(props) {
+			@Override
+			public java.util.List<io.github.corentinferry.github.model.GithubRepository> listPublicRepositories() {
+				try {
+					throw new IllegalStateException("programming error");
+				} catch (Exception e) {
+					org.slf4j.LoggerFactory.getLogger(DefaultGithubApiClient.class).warn("Unexpected error while calling GitHub API: {}", e.getClass().getName());
+					throw new io.github.corentinferry.github.exception.GithubUnexpectedResponseException("Unexpected response");
+				}
+			}
+		};
+		assertThrows(io.github.corentinferry.github.exception.GithubUnexpectedResponseException.class, () -> client.listPublicRepositories());
+		boolean foundClassName = LogCapture.containsClassName(appender.list, "java.lang.IllegalStateException");
+		assertTrue(foundClassName);
+		assertFalse(LogCapture.containsToken(appender.list, "secret-token"));
+		LogCapture.stop(DefaultGithubApiClient.class, appender);
+	}
 }

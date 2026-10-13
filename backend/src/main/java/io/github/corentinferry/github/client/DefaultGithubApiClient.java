@@ -14,11 +14,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +34,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 
 	private static final int MAX_PAGES = 10;
 	private static final Pattern LINK_PATTERN = Pattern.compile("<([^>]+)>;\\s*rel=\"next\"");
+	private static final Logger LOG = LoggerFactory.getLogger(DefaultGithubApiClient.class);
 
 	private final GithubProperties properties;
 	private final RestClient restClient;
@@ -90,7 +96,16 @@ public class DefaultGithubApiClient implements GithubApiClient {
 				nextUrl = extractNext(link);
 			} catch (RestClientResponseException e) {
 				throw mapException(e);
+			} catch (ResourceAccessException e) {
+				Throwable cause = e.getCause();
+				if (cause instanceof SocketTimeoutException || cause instanceof ConnectException || cause instanceof IOException) {
+					throw new GithubUnavailableException("Unavailable");
+				}
+				throw new GithubUnavailableException("Unavailable");
+			} catch (io.github.corentinferry.github.exception.GithubApiException e) {
+				throw e;
 			} catch (Exception e) {
+				LOG.warn("Unexpected error while calling GitHub API: {}", e.getClass().getName());
 				throw new GithubUnexpectedResponseException("Unexpected response");
 			}
 		}
