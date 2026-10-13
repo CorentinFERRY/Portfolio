@@ -39,61 +39,95 @@ class GithubApiClientPaginationTest {
 		}
 	}
 
+	private void stubFirstPageWithNextLink(String nextUrl) {
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
+				.withQueryParam("page", equalTo("1"))
+				.willReturn(aResponse().withStatus(200)
+						.withHeader("Link", "<" + nextUrl + ">; rel=\"next\"")
+						.withBody(RepositoryResponses.singlePublicRepositoryPage())));
+	}
+
+	private void verifyOnlyPageOneWasRequested() {
+		server.verify(1, getRequestedFor(urlPathEqualTo("/users/fictional-owner/repos")));
+	}
+
 	@Test
 	void followsPagination() {
-		String page1 = "[{\"id\":1,\"name\":\"r1\",\"private\":false,\"html_url\":\"u\",\"stargazers_count\":0,\"fork\":false,\"archived\":false}]";
-		String page2 = "[{\"id\":2,\"name\":\"r2\",\"private\":false,\"html_url\":\"u\",\"stargazers_count\":0,\"fork\":false,\"archived\":false}]";
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
 				.withQueryParam("page", equalTo("1"))
 				.willReturn(aResponse().withStatus(200)
 						.withHeader("Link", "<http://localhost:" + server.port() + "/users/fictional-owner/repos?page=2>; rel=\"next\"")
-						.withBody(page1)));
+						.withBody(RepositoryResponses.repositoryPage(1, "r1", false))));
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
 				.withQueryParam("page", equalTo("2"))
-				.willReturn(aResponse().withStatus(200).withBody(page2)));
+				.willReturn(aResponse().withStatus(200).withBody(RepositoryResponses.repositoryPage(2, "r2", false))));
 		GithubApiClient client = new DefaultGithubApiClient(props);
 		var repos = client.listPublicRepositories();
 		assertEquals(2, repos.size());
+		server.verify(2, getRequestedFor(urlPathEqualTo("/users/fictional-owner/repos")));
 	}
 
 	@Test
 	void throwsWhenNextLinkHasDifferentHost() {
-		String page1 = "[{\"id\":1,\"name\":\"r1\",\"private\":false,\"html_url\":\"u\",\"stargazers_count\":0,\"fork\":false,\"archived\":false}]";
-		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
-				.withQueryParam("page", equalTo("1"))
-				.willReturn(aResponse().withStatus(200)
-						.withHeader("Link", "<http://evil.example/users/fictional-owner/repos?page=2>; rel=\"next\"")
-						.withBody(page1)));
+		stubFirstPageWithNextLink("http://evil.example/users/fictional-owner/repos?page=2");
 		GithubApiClient client = new DefaultGithubApiClient(props);
 		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		verifyOnlyPageOneWasRequested();
 	}
 
 	@Test
-	void throwsWhenPageCapExceeded() {
-		String page1 = "[{\"id\":1,\"name\":\"r1\",\"private\":false,\"html_url\":\"u\",\"stargazers_count\":0,\"fork\":false,\"archived\":false}]";
-		// Set up so that after fetching up to cap, next still exists
-		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
-				.withQueryParam("page", equalTo("1"))
-				.willReturn(aResponse().withStatus(200)
-						.withHeader("Link", "<http://localhost:" + server.port() + "/users/fictional-owner/repos?page=10>; rel=\"next\"")
-						.withBody(page1)));
-		// But our impl fetches sequentially - easier to simulate by having page9 link to page10? Or adjust
-		// Simpler: stub pages 1-10 all with next to 11, and page 10 returns no next? No easier way - let us stub flexibly
-		for (int i = 1; i < 10; i++) {
+	void throwsWhenNextLinkHostStartsWithBaseHost() {
+		stubFirstPageWithNextLink("http://localhost.evil.example:" + server.port() + "/users/fictional-owner/repos?page=2");
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		verifyOnlyPageOneWasRequested();
+	}
+
+	@Test
+	void throwsWhenNextLinkHasDifferentPort() {
+		stubFirstPageWithNextLink("http://localhost:" + (server.port() + 1) + "/users/fictional-owner/repos?page=2");
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		verifyOnlyPageOneWasRequested();
+	}
+
+	@Test
+	void throwsWhenNextLinkHasDifferentScheme() {
+		stubFirstPageWithNextLink("https://localhost:" + server.port() + "/users/fictional-owner/repos?page=2");
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		verifyOnlyPageOneWasRequested();
+	}
+
+	@Test
+	void throwsWhenNextLinkHasCredentials() {
+		stubFirstPageWithNextLink("http://user@localhost:" + server.port() + "/users/fictional-owner/repos?page=2");
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		verifyOnlyPageOneWasRequested();
+	}
+
+	@Test
+	void throwsWhenNextLinkHostHasTrailingDot() {
+		stubFirstPageWithNextLink("http://localhost.:" + server.port() + "/users/fictional-owner/repos?page=2");
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		verifyOnlyPageOneWasRequested();
+	}
+
+	@Test
+	void throwsWhenPageCapExceededAndMakesExactlyTenRequests() {
+		for (int i = 1; i <= 10; i++) {
 			final int page = i;
 			server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
 					.withQueryParam("page", equalTo(String.valueOf(page)))
 					.willReturn(aResponse().withStatus(200)
 							.withHeader("Link", "<http://localhost:" + server.port() + "/users/fictional-owner/repos?page=" + (page + 1) + ">; rel=\"next\"")
-							.withBody(page1)));
+							.withBody(RepositoryResponses.singlePublicRepositoryPage())));
 		}
-		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
-				.withQueryParam("page", equalTo("10"))
-				.willReturn(aResponse().withStatus(200)
-						.withHeader("Link", "<http://localhost:" + server.port() + "/users/fictional-owner/repos?page=11>; rel=\"next\"")
-						.withBody(page1)));
 		GithubApiClient client = new DefaultGithubApiClient(props);
 		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		server.verify(10, getRequestedFor(urlPathEqualTo("/users/fictional-owner/repos")));
 		server.verify(0, getRequestedFor(urlPathEqualTo("/users/fictional-owner/repos")).withQueryParam("page", equalTo("11")));
 	}
 }

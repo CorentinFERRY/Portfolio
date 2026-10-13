@@ -144,6 +144,9 @@ public class DefaultGithubApiClient implements GithubApiClient {
 	}
 
 	private void ensureSameOrigin(URI base, URI candidate) {
+		if (candidate.getUserInfo() != null) {
+			throw new GithubPaginationViolationException("Pagination violation");
+		}
 		if (candidate.getScheme() == null || base.getScheme() == null || !candidate.getScheme().equals(base.getScheme())) {
 			throw new GithubPaginationViolationException("Pagination violation");
 		}

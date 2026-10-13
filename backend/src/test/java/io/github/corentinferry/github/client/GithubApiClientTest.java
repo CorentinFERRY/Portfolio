@@ -43,7 +43,7 @@ class GithubApiClientTest {
 
 	@Test
 	void listsPublicRepositoriesFiltersAndMapsFields() {
-		String body = "[{\"id\":1,\"name\":\"fictional-repo\",\"description\":\"desc\",\"html_url\":\"https://example.com/fictional-owner/fictional-repo\",\"homepage\":\"https://example.com\",\"language\":\"Java\",\"topics\":[\"demo\"],\"stargazers_count\":5,\"fork\":false,\"archived\":false,\"pushed_at\":\"2026-10-09T00:00:00Z\",\"private\":false,\"unknown_field\":\"ignored\"}]";
+		String body = RepositoryResponses.repositoryPage(1, "fictional-repo", false);
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
 				.withQueryParam("type", equalTo("owner"))
 				.withQueryParam("sort", equalTo("pushed"))
@@ -63,7 +63,7 @@ class GithubApiClientTest {
 
 	@Test
 	void dropsPrivateRepos() {
-		String body = "[{\"id\":1,\"name\":\"r1\",\"private\":true},{\"id\":2,\"name\":\"r2\",\"private\":false,\"html_url\":\"u\",\"stargazers_count\":0,\"fork\":false,\"archived\":false}]";
+		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", true) + "," + RepositoryResponses.repositoryJson(2, "r2", false) + "]";
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
 		GithubApiClient client = new DefaultGithubApiClient(props);
 		var repos = client.listPublicRepositories();
