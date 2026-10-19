@@ -178,8 +178,42 @@ class GithubApiClientErrorTest {
 		LogCapture.stop(DefaultGithubApiClient.class, appender);
 	}
 
+
 	@Test
-	void unexpectedParsingFailureLogsClassNameOnly() {
+	void malformedJsonDoesNotLogWarning() {
+		ListAppender<ILoggingEvent> appender = LogCapture.start(DefaultGithubApiClient.class);
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
+				.willReturn(aResponse().withStatus(200).withBody("<html>oops</html>")));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(io.github.corentinferry.github.exception.GithubUnexpectedResponseException.class,
+				() -> client.listPublicRepositories());
+		boolean hasWarnOrAbove = false;
+		for (ch.qos.logback.classic.spi.ILoggingEvent e : appender.list) {
+			if (e.getLevel().toInt() >= ch.qos.logback.classic.Level.WARN_INT) {
+				hasWarnOrAbove = true;
+				break;
+			}
+		}
+		assertFalse(hasWarnOrAbove, "expected no WARN or higher logs");
+		for (ch.qos.logback.classic.spi.ILoggingEvent e : appender.list) {
+			String msg = e.getFormattedMessage();
+			if (msg != null && msg.contains("<html>oops</html>")) {
+				org.junit.jupiter.api.Assertions.fail("response body leaked to logs");
+			}
+			Object[] args = e.getArgumentArray();
+			if (args != null) {
+				for (Object a : args) {
+					if (a != null && a.toString().contains("<html>oops</html>")) {
+						org.junit.jupiter.api.Assertions.fail("response body leaked to logs");
+					}
+				}
+			}
+		}
+		LogCapture.stop(DefaultGithubApiClient.class, appender);
+	}
+
+	@Test
+	void nonJacksonUnexpectedFailureLogsClassNameOnly() {
 		ListAppender<ILoggingEvent> appender = LogCapture.start(DefaultGithubApiClient.class);
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
 				.willReturn(aResponse().withStatus(200).withBody("[]")));
@@ -194,7 +228,15 @@ class GithubApiClientErrorTest {
 				badMapper);
 		assertThrows(io.github.corentinferry.github.exception.GithubUnexpectedResponseException.class,
 				() -> clientReal.listPublicRepositories());
-		assertTrue(LogCapture.containsClassName(appender.list, "java.lang.IllegalStateException"));
+		long warnCount = 0;
+		for (ch.qos.logback.classic.spi.ILoggingEvent e : appender.list) {
+			if (e.getLevel() == ch.qos.logback.classic.Level.WARN) {
+				warnCount++;
+			}
+		}
+		assertEquals(1, warnCount, "expected exactly one WARN event");
+		boolean foundClassName = LogCapture.containsClassName(appender.list, "java.lang.IllegalStateException");
+		assertTrue(foundClassName);
 		assertFalse(LogCapture.containsClassName(appender.list, "boom from mapper"));
 		assertFalse(LogCapture.containsToken(appender.list, "secret-token"));
 		LogCapture.stop(DefaultGithubApiClient.class, appender);

@@ -208,7 +208,12 @@ public class DefaultGithubApiClient implements GithubApiClient {
 
 	private List<GithubRepository> parse(String body) {
 		try {
-			JsonNode root = objectMapper.readTree(body);
+			JsonNode root;
+			try {
+				root = objectMapper.readTree(body);
+			} catch (tools.jackson.core.JacksonException e) {
+				throw new GithubUnexpectedResponseException("Unexpected response");
+			}
 			if (!root.isArray()) {
 				throw new GithubUnexpectedResponseException("Unexpected response");
 			}
