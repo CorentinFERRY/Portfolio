@@ -106,8 +106,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			} catch (io.github.corentinferry.github.exception.GithubApiException e) {
 				throw e;
 			} catch (Exception e) {
-				LOG.warn("Unexpected error while calling GitHub API: {}", e.getClass().getName());
-				throw new GithubUnexpectedResponseException("Unexpected response");
+				throw mapUnexpected(e);
 			}
 		}
 		if (nextUrl != null) {
@@ -158,6 +157,12 @@ public class DefaultGithubApiClient implements GithubApiClient {
 		}
 		return new GithubUnexpectedResponseException("Unexpected response");
 	}
+
+	private RuntimeException mapUnexpected(Exception e) {
+		LOG.warn("Unexpected error while calling GitHub API: {}", e.getClass().getName());
+		return new GithubUnexpectedResponseException("Unexpected response");
+	}
+
 
 	private void ensureSameOrigin(URI base, URI candidate) {
 		if (candidate.getUserInfo() != null) {
@@ -219,7 +224,10 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			}
 			return result;
 		} catch (Exception e) {
-			throw new GithubUnexpectedResponseException("Unexpected response");
+			if (e instanceof io.github.corentinferry.github.exception.GithubApiException) {
+				throw (io.github.corentinferry.github.exception.GithubApiException) e;
+			}
+			throw mapUnexpected(e);
 		}
 	}
 
