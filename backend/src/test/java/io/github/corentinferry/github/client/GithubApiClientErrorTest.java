@@ -141,34 +141,45 @@ class GithubApiClientErrorTest {
 	@Test
 	void throwsUnavailableOnConnectionRefused() throws Exception {
 		ListAppender<ILoggingEvent> appender = LogCapture.start(DefaultGithubApiClient.class);
-		com.github.tomakehurst.wiremock.WireMockServer temp = new com.github.tomakehurst.wiremock.WireMockServer(
-				com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig().dynamicPort());
-		temp.start();
-		int port = temp.port();
-		temp.stop();
-		// Retry once if port was taken quickly by another process
-		try {
-			GithubProperties refusedProps = new GithubProperties("secret-token", "fictional-owner",
-					"http://localhost:" + port, 1000, 2000);
-			GithubApiClient client = new DefaultGithubApiClient(refusedProps);
-			assertThrows(GithubUnavailableException.class, () -> client.listPublicRepositories());
-		} catch (Exception e) {
-			com.github.tomakehurst.wiremock.WireMockServer temp2 = new com.github.tomakehurst.wiremock.WireMockServer(
-					com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig().dynamicPort());
-			temp2.start();
-			port = temp2.port();
-			temp2.stop();
-			GithubProperties refusedProps = new GithubProperties("secret-token", "fictional-owner",
-					"http://localhost:" + port, 1000, 2000);
-			GithubApiClient client = new DefaultGithubApiClient(refusedProps);
-			assertThrows(GithubUnavailableException.class, () -> client.listPublicRepositories());
+		boolean proven = false;
+		Exception lastOutcome = null;
+		int attempts = 0;
+		while (attempts < 3 && !proven) {
+			attempts++;
+			int port = -1;
+			try (java.net.ServerSocket socket = new java.net.ServerSocket(0)) {
+				port = socket.getLocalPort();
+			} catch (Exception e) {
+				lastOutcome = e;
+				continue;
+			}
+			try {
+				GithubProperties refusedProps = new GithubProperties("secret-token", "fictional-owner",
+						"http://localhost:" + port, 1000, 2000);
+				GithubApiClient client = new DefaultGithubApiClient(refusedProps);
+				client.listPublicRepositories();
+				lastOutcome = new IllegalStateException("unexpected success on port " + port);
+			} catch (GithubUnavailableException e) {
+				proven = true;
+				lastOutcome = null;
+			} catch (Exception e) {
+				lastOutcome = e;
+			}
+		}
+		if (!proven) {
+			String msg = "expected GithubUnavailableException after retries; last outcome: "
+					+ (lastOutcome == null ? "none" : lastOutcome.getClass().getName());
+			if (msg.contains("secret-token")) {
+				msg = msg.replace("secret-token", "redacted");
+			}
+			org.junit.jupiter.api.Assertions.fail(msg);
 		}
 		assertFalse(LogCapture.containsToken(appender.list, "secret-token"));
 		LogCapture.stop(DefaultGithubApiClient.class, appender);
 	}
 
 	@Test
-	void unexpectedFailureLogsClassNameOnly() {
+	void unexpectedParsingFailureLogsClassNameOnly() {
 		ListAppender<ILoggingEvent> appender = LogCapture.start(DefaultGithubApiClient.class);
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
 				.willReturn(aResponse().withStatus(200).withBody("[]")));
@@ -181,9 +192,10 @@ class GithubApiClientErrorTest {
 		GithubApiClient clientReal = new DefaultGithubApiClient(props,
 				org.springframework.web.client.RestClient.builder().baseUrl("http://localhost:" + server.port()).build(),
 				badMapper);
-		assertThrows(io.github.corentinferry.github.exception.GithubUnexpectedResponseException.class, () -> clientReal.listPublicRepositories());
-		// Note: parse() catches all exceptions and rethrows GithubUnexpectedResponseException; generic catch not triggered.
-		// So we verify token not leaked; class name may not be logged via generic catch in this path.
+		assertThrows(io.github.corentinferry.github.exception.GithubUnexpectedResponseException.class,
+				() -> clientReal.listPublicRepositories());
+		assertTrue(LogCapture.containsClassName(appender.list, "java.lang.IllegalStateException"));
+		assertFalse(LogCapture.containsClassName(appender.list, "boom from mapper"));
 		assertFalse(LogCapture.containsToken(appender.list, "secret-token"));
 		LogCapture.stop(DefaultGithubApiClient.class, appender);
 	}
