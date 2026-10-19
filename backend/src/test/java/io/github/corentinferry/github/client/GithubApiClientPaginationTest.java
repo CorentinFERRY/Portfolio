@@ -17,6 +17,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(OutputCaptureExtension.class)
@@ -96,6 +97,17 @@ class GithubApiClientPaginationTest {
 		stubFirstPageWithNextLink("https://localhost:" + server.port() + "/users/fictional-owner/repos?page=2");
 		GithubApiClient client = new DefaultGithubApiClient(props);
 		assertThrows(GithubPaginationViolationException.class, () -> client.listPublicRepositories());
+		verifyOnlyPageOneWasRequested();
+	}
+
+
+	@Test
+	void throwsWhenNextLinkIsInvalidUri() {
+		stubFirstPageWithNextLink("http://[invalid");
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		GithubPaginationViolationException ex = assertThrows(GithubPaginationViolationException.class,
+				() -> client.listPublicRepositories());
+		assertFalse(ex.getMessage().contains("http://[invalid"));
 		verifyOnlyPageOneWasRequested();
 	}
 
