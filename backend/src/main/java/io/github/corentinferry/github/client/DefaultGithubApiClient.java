@@ -75,7 +75,12 @@ public class DefaultGithubApiClient implements GithubApiClient {
 		int pages = 0;
 		while (nextUrl != null && pages < MAX_PAGES) {
 			pages++;
-			URI uri = URI.create(nextUrl);
+			URI uri;
+			try {
+				uri = URI.create(nextUrl);
+			} catch (IllegalArgumentException e) {
+				throw new GithubPaginationViolationException("Pagination violation");
+			}
 			ensureSameOrigin(baseUri, uri);
 			try {
 				ResponseEntity<String> response = restClient.get()
