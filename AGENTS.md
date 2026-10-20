@@ -60,6 +60,11 @@ Rules:
 - Explain non-obvious design choices briefly, so I can learn from them.
 - Long-running processes, such as a smoke test, are started as a single process (for example `java -jar` on the packaged jar); capture its PID, stop that PID only, then verify that the port is free.
 - **After showing failing tests, end your message with a question asking for my approval and do nothing else until I answer.** A tool result visible on the screen is not a message to me.
+- My configuration denies `git commit`, `git push` and `git reset`. I commit and push myself. Stage files by explicit path only, never with `git add -A`, `git add .` or another all option; then give me the exact commit command and stop.
+- For a mutation proof, start with a clean working tree and an empty `git diff`. Edit only with the edit tool, run only the named test class, show the failing test and its message, then restore with `git restore --worktree <path>` only, never the staged area, and show an empty `git diff` again.
+- Never rewrite the ending of a file with a script: use the edit tool, and end every file with a single newline.
+- Announce every network access in the chat with its exact URL and purpose before the permission window.
+- The final message of a slice gives the requirement table with the test that proves each row.
 
 ## 6. Git workflow (Gitflow)
 
@@ -116,7 +121,7 @@ Examples: `feat(github): add repository client with token from env`, `test(api):
 - Frontend: Vitest and Vue Test Utils for components and stores.
 - Cover error cases and edge cases, not only the happy path.
 - Security behaviours must have tests (see section 9).
-- **Never modify, weaken, skip or delete an existing test to make it pass.** If a test seems wrong, stop and explain why, then wait for my decision.
+- **Never modify, weaken, skip or delete an existing test to make it pass. If a test you wrote fails, stop and tell me instead of editing the assertion.** If a test seems wrong, stop and explain why, then wait for my decision.
 - Do not lower coverage. Coverage is an indicator, not a goal: do not write meaningless tests to raise it.
 
 ## 9. Security (non-negotiable)
@@ -126,7 +131,7 @@ Security is a core requirement even though the data is public.
 Secrets:
 
 - The GitHub token is read from an environment variable on the backend only. It must never appear in the frontend, in logs, in API responses, in tests or in Git history.
-- Never read, print, edit, create or commit `.env` files. Document variables in `.env.example` with fake values only.
+- Never read, print, edit, create or commit `.env` files, and never print the environment (`env`, `printenv`, echoing a variable). Document variables in `.env.example` with fake values only.
 - The token must be a fine-grained, read-only token with the minimum scope.
 
 Backend:
