@@ -7,27 +7,18 @@ public class GithubProperties {
 
 	public static final String GITHUB_API_VERSION = "2022-11-28";
 
-	private String token;
-	private String owner;
-	private String apiBaseUrl = "https://api.github.com";
-	private int connectTimeout = 3000;
-	private int readTimeout = 10000;
-
-	public GithubProperties() {
-	}
+	private final String token;
+	private final String owner;
+	private final String apiBaseUrl;
+	private final int connectTimeout;
+	private final int readTimeout;
 
 	public GithubProperties(String token, String owner, String apiBaseUrl, Integer connectTimeout, Integer readTimeout) {
 		this.token = token;
 		this.owner = owner;
-		if (apiBaseUrl != null && !apiBaseUrl.isBlank()) {
-			this.apiBaseUrl = apiBaseUrl;
-		}
-		if (connectTimeout != null) {
-			this.connectTimeout = connectTimeout;
-		}
-		if (readTimeout != null) {
-			this.readTimeout = readTimeout;
-		}
+		this.apiBaseUrl = apiBaseUrl != null && !apiBaseUrl.isBlank() ? apiBaseUrl : "https://api.github.com";
+		this.connectTimeout = connectTimeout != null ? connectTimeout : 3000;
+		this.readTimeout = readTimeout != null ? readTimeout : 10000;
 		validate();
 	}
 
@@ -67,15 +58,16 @@ public class GithubProperties {
 		if (apiBaseUrl == null || apiBaseUrl.isBlank()) {
 			throw new IllegalStateException("github.api-base-url is required");
 		}
+		java.net.URI uri;
 		try {
-			java.net.URI uri = java.net.URI.create(apiBaseUrl);
-			String scheme = uri.getScheme();
-			String host = uri.getHost();
-			if (scheme == null || !(scheme.equals("https") || isLoopbackHost(host))) {
-				throw new IllegalStateException("github.api-base-url must use https");
-			}
-		} catch (Exception e) {
+			uri = java.net.URI.create(apiBaseUrl);
+		} catch (IllegalArgumentException e) {
 			throw new IllegalStateException("github.api-base-url is invalid");
+		}
+		String scheme = uri.getScheme();
+		String host = uri.getHost();
+		if (scheme == null || !(scheme.equals("https") || isLoopbackHost(host))) {
+			throw new IllegalStateException("github.api-base-url must use https");
 		}
 	}
 
@@ -90,40 +82,20 @@ public class GithubProperties {
 		return token;
 	}
 
-	public void setToken(String token) {
-		this.token = token;
-	}
-
 	public String getOwner() {
 		return owner;
-	}
-
-	public void setOwner(String owner) {
-		this.owner = owner;
 	}
 
 	public String getApiBaseUrl() {
 		return apiBaseUrl;
 	}
 
-	public void setApiBaseUrl(String apiBaseUrl) {
-		this.apiBaseUrl = apiBaseUrl;
-	}
-
 	public int getConnectTimeout() {
 		return connectTimeout;
 	}
 
-	public void setConnectTimeout(int connectTimeout) {
-		this.connectTimeout = connectTimeout;
-	}
-
 	public int getReadTimeout() {
 		return readTimeout;
-	}
-
-	public void setReadTimeout(int readTimeout) {
-		this.readTimeout = readTimeout;
 	}
 
 	@Override
