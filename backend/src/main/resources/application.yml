@@ -1,3 +1,6 @@
 spring:
   application:
     name: portfolio-backend
+github:
+  connect-timeout: ${GITHUB_CONNECT_TIMEOUT_MS:3000}
+  read-timeout: ${GITHUB_READ_TIMEOUT_MS:10000}
