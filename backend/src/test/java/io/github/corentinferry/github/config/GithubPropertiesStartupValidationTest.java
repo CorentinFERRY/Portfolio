@@ -3,11 +3,15 @@ package io.github.corentinferry.github.config;
 import io.github.corentinferry.config.GithubPropertiesConfig;
 import io.github.corentinferry.github.GithubProperties;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.config.ConfigDataEnvironmentPostProcessor;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.env.SystemEnvironmentPropertySource;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -112,6 +116,162 @@ class GithubPropertiesStartupValidationTest {
 					assertNull(context.getStartupFailure(), "context should have started");
 					assertEquals("http://localhost:8089",
 							context.getBean(GithubProperties.class).getApiBaseUrl());
+				});
+	}
+
+	@Test
+	void httpsBaseUrlStartsContext() {
+		runner.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL,
+						"github.api-base-url=https://api.github.com")
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					assertEquals("https://api.github.com",
+							context.getBean(GithubProperties.class).getApiBaseUrl());
+				});
+	}
+
+	@Test
+	void defaultsWhenOnlyOwnerAndTokenProvided() {
+		runner.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL)
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals("https://api.github.com", p.getApiBaseUrl());
+					assertEquals(3000, p.getConnectTimeout());
+					assertEquals(10000, p.getReadTimeout());
+				});
+	}
+
+	@Test
+	void defaultsFromApplicationYmlWhenNoEnvVar() {
+		ApplicationContextRunner ymlRunner = new ApplicationContextRunner()
+				.withUserConfiguration(GithubPropertiesConfig.class)
+				.withInitializer(context -> ConfigDataEnvironmentPostProcessor.applyTo(context.getEnvironment()));
+		ymlRunner.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL)
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals("https://api.github.com", p.getApiBaseUrl());
+					assertEquals(3000, p.getConnectTimeout());
+					assertEquals(10000, p.getReadTimeout());
+				});
+	}
+
+	@Test
+	void explicitPropertiesBoundViaRelaxedBinding() {
+		runner.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL,
+						"github.api-base-url=https://example.invalid/gh",
+						"github.connect-timeout=1500",
+						"github.read-timeout=2500")
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals("https://example.invalid/gh", p.getApiBaseUrl());
+					assertEquals(1500, p.getConnectTimeout());
+					assertEquals(2500, p.getReadTimeout());
+				});
+	}
+
+	@Test
+	void malformedBaseUrlStopsStartupWithoutEchoingValue() {
+		String malformed = "[not-a-uri";
+		runner.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL,
+						"github.api-base-url=" + malformed)
+				.run(context -> {
+					Throwable failure = context.getStartupFailure();
+					assertNotNull(failure, "context should have failed to start");
+					Throwable rootCause = rootCauseOf(failure);
+					assertEquals(IllegalStateException.class, rootCause.getClass());
+					assertEquals("github.api-base-url is invalid", rootCause.getMessage());
+					for (String message : messagesOf(failure)) {
+						assertFalse(message.contains(TOKEN_SENTINEL), "token sentinel leaked into a failure message");
+						assertFalse(message.contains(INVALID_OWNER), "invalid owner leaked into a failure message");
+						assertFalse(message.contains(INSECURE_BASE_URL), "base URL leaked into a failure message");
+						assertFalse(message.contains(LOCALHOST_EVIL_BASE_URL), "base URL leaked into a failure message");
+						assertFalse(message.contains(LOOPBACK_IP_EVIL_BASE_URL), "base URL leaked into a failure message");
+						assertFalse(message.contains(malformed), "malformed base URL leaked into a failure message");
+					}
+				});
+	}
+
+	@Test
+	void blankBaseUrlGivesDefault() {
+		// Intentional: blank base URL is treated as absent and falls back to https://api.github.com for fail-safe https.
+		runner.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL,
+						"github.api-base-url=")
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals("https://api.github.com", p.getApiBaseUrl());
+				});
+	}
+
+	private ApplicationContextRunner envRunnerWithSystemEnvironment(Map<String, Object> env) {
+		return new ApplicationContextRunner()
+				.withUserConfiguration(GithubPropertiesConfig.class)
+				.withInitializer(context -> {
+					ConfigDataEnvironmentPostProcessor.applyTo(context.getEnvironment());
+					context.getEnvironment().getPropertySources()
+							.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
+					context.getEnvironment().getPropertySources()
+							.addLast(new SystemEnvironmentPropertySource("systemEnvironment", env));
+				});
+	}
+
+	@Test
+	void envVarGITHUB_API_BASE_URLBoundViaSystemEnvironmentSource() {
+		Map<String, Object> env = new HashMap<>();
+		env.put("GITHUB_API_BASE_URL", "https://env.example/gh");
+		envRunnerWithSystemEnvironment(env)
+				.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL)
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals("https://env.example/gh", p.getApiBaseUrl());
+				});
+	}
+
+	@Test
+	void envVarGITHUB_CONNECT_TIMEOUT_MSBoundViaSystemEnvironmentSource() {
+		Map<String, Object> env = new HashMap<>();
+		env.put("GITHUB_CONNECT_TIMEOUT_MS", "1500");
+		envRunnerWithSystemEnvironment(env)
+				.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL)
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals(1500, p.getConnectTimeout());
+				});
+	}
+
+	@Test
+	void envVarGITHUB_READ_TIMEOUT_MSBoundViaSystemEnvironmentSource() {
+		Map<String, Object> env = new HashMap<>();
+		env.put("GITHUB_READ_TIMEOUT_MS", "2500");
+		envRunnerWithSystemEnvironment(env)
+				.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL)
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals(2500, p.getReadTimeout());
 				});
 	}
 
