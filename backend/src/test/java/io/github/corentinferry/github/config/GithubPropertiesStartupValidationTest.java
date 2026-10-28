@@ -275,6 +275,38 @@ class GithubPropertiesStartupValidationTest {
 				});
 	}
 
+	@Test
+	void envVarGITHUB_TOKENAndOwnerBoundWithoutProperties() {
+		Map<String, Object> env = new HashMap<>();
+		env.put("GITHUB_TOKEN", TOKEN_SENTINEL);
+		env.put("GITHUB_OWNER", VALID_OWNER);
+		envRunnerWithSystemEnvironment(env)
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					GithubProperties p = context.getBean(GithubProperties.class);
+					assertEquals(TOKEN_SENTINEL, p.getToken());
+					assertEquals(VALID_OWNER, p.getOwner());
+				});
+	}
+
+	@Test
+	void envVarGITHUB_API_TOKENDoesNotBind() {
+		Map<String, Object> env = new HashMap<>();
+		env.put("GITHUB_API_TOKEN", TOKEN_SENTINEL);
+		env.put("GITHUB_OWNER", VALID_OWNER);
+		envRunnerWithSystemEnvironment(env)
+				.run(context -> {
+					Throwable failure = context.getStartupFailure();
+					assertNotNull(failure, "context should have failed to start");
+					Throwable rootCause = rootCauseOf(failure);
+					assertEquals(IllegalStateException.class, rootCause.getClass());
+					assertEquals("github.token is required", rootCause.getMessage());
+					for (String message : messagesOf(failure)) {
+						assertFalse(message.contains(TOKEN_SENTINEL), "token value leaked into a failure message");
+					}
+				});
+	}
+
 	private void assertStartupFailsWith(String expectedMessage, String... properties) {
 		runner.withPropertyValues(properties).run(context -> {
 			Throwable failure = context.getStartupFailure();

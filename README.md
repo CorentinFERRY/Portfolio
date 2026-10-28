@@ -175,7 +175,7 @@ cd backend
 ```
 
 Required variables (documented with fake values in `.env.example` only):
-- `GITHUB_API_TOKEN`: fine-grained, read-only token for the GitHub API (never committed)
+- `GITHUB_TOKEN`: fine-grained, read-only token for the GitHub API (never committed)
 - `GITHUB_OWNER`: GitHub account/owner to list public repositories for
 - `GITHUB_API_BASE_URL`: optional, defaults to https://api.github.com
 - `GITHUB_CONNECT_TIMEOUT_MS`: optional, defaults to 3000 ms
