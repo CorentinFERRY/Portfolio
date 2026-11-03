@@ -33,6 +33,7 @@ import java.util.regex.Pattern;
 public class DefaultGithubApiClient implements GithubApiClient {
 
 	private static final int MAX_PAGES = 10;
+	private static final String USER_AGENT = "portfolio-backend";
 	private static final Pattern LINK_PATTERN = Pattern.compile("<([^>]+)>;\\s*rel=\"next\"");
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultGithubApiClient.class);
 
@@ -86,7 +87,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 				ResponseEntity<String> response = restClient.get()
 						.uri(uri)
 						.header("Authorization", "Bearer " + properties.getToken())
-						.header("User-Agent", "portfolio-backend")
+						.header("User-Agent", USER_AGENT)
 						.header("X-GitHub-Api-Version", GithubProperties.GITHUB_API_VERSION)
 						.retrieve()
 						.toEntity(String.class);

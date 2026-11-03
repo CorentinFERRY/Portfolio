@@ -62,6 +62,18 @@ class GithubApiClientTest {
 	}
 
 	@Test
+	void sendsExactUserAgentHeader() {
+		String body = RepositoryResponses.repositoryPage(1, "fictional-repo", false);
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
+				.withHeader("User-Agent", equalTo("portfolio-backend"))
+				.willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		var repos = client.listPublicRepositories();
+		assertEquals(1, repos.size());
+		assertEquals("fictional-repo", repos.get(0).name());
+	}
+
+	@Test
 	void dropsPrivateRepos() {
 		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", true) + "," + RepositoryResponses.repositoryJson(2, "r2", false) + "]";
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
