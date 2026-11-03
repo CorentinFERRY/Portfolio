@@ -6,6 +6,10 @@ final class RepositoryResponses {
 	}
 
 	static String repositoryJson(long id, String name, boolean privateRepository) {
+		return repositoryJson(id, name, privateRepository, null);
+	}
+
+	static String repositoryJson(long id, String name, boolean privateRepository, String visibilityJson) {
 		return "{\"id\":" + id
 				+ ",\"name\":\"" + name + "\""
 				+ ",\"description\":\"desc\""
@@ -18,6 +22,7 @@ final class RepositoryResponses {
 				+ ",\"archived\":false"
 				+ ",\"pushed_at\":\"2026-10-09T00:00:00Z\""
 				+ ",\"private\":" + privateRepository
+				+ (visibilityJson == null ? "" : ",\"visibility\":" + visibilityJson)
 				+ ",\"unknown_field\":\"ignored\"}";
 	}
 

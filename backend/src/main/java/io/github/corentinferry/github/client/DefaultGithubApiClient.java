@@ -241,6 +241,15 @@ public class DefaultGithubApiClient implements GithubApiClient {
 				if (node.get("private").asBoolean()) {
 					continue;
 				}
+				JsonNode visibility = node.get("visibility");
+				if (visibility != null && !visibility.isNull()) {
+					if (!visibility.isTextual()) {
+						throw new GithubUnexpectedResponseException("Unexpected response");
+					}
+					if (!"public".equals(visibility.asString())) {
+						continue;
+					}
+				}
 				result.add(map(node));
 			}
 			return result;

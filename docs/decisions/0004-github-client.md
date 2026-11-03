@@ -11,7 +11,7 @@ We need a GitHub client to list public repositories for a single owner via the G
 - Use Spring `RestClient` with `SimpleClientHttpRequestFactory`; set timeouts from properties and disable redirect following (`setInstanceFollowRedirects(false)`).
 - Send headers: `Authorization: Bearer <token>` (only if token present), `User-Agent`, `X-GitHub-Api-Version: 2022-11-28`.
 - Query defaults: `type=owner`, `sort=pushed`, `direction=desc`, `per_page=100`, `page=1`.
-- Filter: keep only repos where `private` is explicitly `false`. If `private` missing/wrong type -> `GithubUnexpectedResponseException` (fail closed).
+- Filter: `private` is mandatory and must be explicitly `false`; missing or wrong type -> `GithubUnexpectedResponseException` (fail closed). When `private` is `false`, keep the repo only if `visibility` is absent or `null`, or exactly `public` (case-sensitive). If `visibility` is present, non-null and non-textual -> `GithubUnexpectedResponseException`; any other visibility value is dropped.
 - Pagination: parse `Link` header for `rel="next"`. Enforce same-origin (scheme/host/port, with defaults for http/https). Cap total pages at 10. If next exists after last allowed page -> `GithubPaginationViolationException`.
 - Error mapping: 401 -> `GithubAuthenticationFailureException`, 403 -> `GithubRateLimitExceededException` if `x-ratelimit-remaining` == "0" or `Retry-After` present, else `GithubAccessDeniedException`, 404 -> `GithubOwnerNotFoundException`, 429 -> `GithubRateLimitExceededException`, 5xx -> `GithubUnavailableException`, 3xx -> `GithubUnexpectedResponseException`, other client errors -> `GithubUnexpectedResponseException`.
 - Rate limit info: include `x-ratelimit-reset` epoch seconds in exception when available.
