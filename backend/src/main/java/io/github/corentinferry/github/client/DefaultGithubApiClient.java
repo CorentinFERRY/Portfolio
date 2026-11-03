@@ -15,6 +15,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
@@ -71,7 +72,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			base = base.substring(0, base.length() - 1);
 		}
 		URI baseUri = URI.create(base);
-		String nextUrl = base + "/users/" + properties.getOwner() + "/repos?type=owner&sort=pushed&direction=desc&per_page=100&page=1";
+		String nextUrl = firstPageUri(base, properties.getOwner()).toString();
 		List<GithubRepository> all = new ArrayList<>();
 		int pages = 0;
 		while (nextUrl != null && pages < MAX_PAGES) {
@@ -114,6 +115,20 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			throw new GithubPaginationViolationException("Pagination violation");
 		}
 		return all;
+	}
+
+	private static URI firstPageUri(String baseUrl, String owner) {
+		String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+		return UriComponentsBuilder.fromUriString(base)
+				.path("/users/{owner}/repos")
+				.queryParam("type", "owner")
+				.queryParam("sort", "pushed")
+				.queryParam("direction", "desc")
+				.queryParam("per_page", "100")
+				.queryParam("page", "1")
+				.encode()
+				.buildAndExpand(owner)
+				.toUri();
 	}
 
 	private RuntimeException mapException(RestClientResponseException e) {
