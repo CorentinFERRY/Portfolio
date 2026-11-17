@@ -182,3 +182,23 @@ Required variables (documented with fake values in `.env.example` only):
 - `GITHUB_READ_TIMEOUT_MS`: optional, defaults to 10000 ms
 
 Never commit `.env` files. Tokens must never appear in frontend, logs, API responses, tests or Git history.
+
+## GitHub client verification
+
+Review date: 2026-11-17. The decision date of ADR 0004 remains 2026-10-09
+(`docs/decisions/0004-github-client.md:3`).
+
+- GitHub documentation pages: non vérifié. No external documentation page is
+  claimed as verified for this client.
+- WireMock 3.13.2 is a test-scope dependency (`backend/pom.xml:39-44`) used as the
+  local HTTP server by the client tests
+  (`backend/src/test/java/io/github/corentinferry/github/client/GithubApiClientTest.java:31-35`,
+  `backend/src/test/java/io/github/corentinferry/github/client/GithubApiClientPaginationTest.java:29-33`,
+  `backend/src/test/java/io/github/corentinferry/github/client/GithubApiClientOpenApiFixtureTest.java:39-43`)
+  instead of calling the real GitHub API (`AGENTS.md:120`).
+- Fixture provenance: recorded in `docs/decisions/0004-github-client.md` and in
+  the fixture test header
+  (`backend/src/test/java/io/github/corentinferry/github/client/GithubApiClientOpenApiFixtureTest.java:23-33`).
+- OpenAPI source repository LICENSE: non vérifié. A 2026-11-17 GET to
+  `https://raw.githubusercontent.com/github/rest-api-description/main/LICENSE`
+  returned HTTP 404, 14 bytes; no license text was stored in this repository.
