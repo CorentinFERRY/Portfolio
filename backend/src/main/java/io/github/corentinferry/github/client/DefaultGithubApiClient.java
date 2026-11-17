@@ -67,6 +67,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 
 	@Override
 	public List<GithubRepository> listPublicRepositories() {
+		LOG.debug("Listing public repositories for owner {}", properties.getOwner());
 		String base = properties.getApiBaseUrl();
 		if (base.endsWith("/")) {
 			base = base.substring(0, base.length() - 1);
