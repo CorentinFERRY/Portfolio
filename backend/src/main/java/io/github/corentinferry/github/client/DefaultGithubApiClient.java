@@ -244,7 +244,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 				}
 				JsonNode visibility = node.get("visibility");
 				if (visibility != null && !visibility.isNull()) {
-					if (!visibility.isTextual()) {
+					if (!visibility.isString()) {
 						throw new GithubUnexpectedResponseException("Unexpected response");
 					}
 					if (!"public".equals(visibility.asString())) {
@@ -266,10 +266,10 @@ public class DefaultGithubApiClient implements GithubApiClient {
 		if (!node.has("id") || !node.get("id").isNumber()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
-		if (!node.has("name") || !node.get("name").isTextual()) {
+		if (!node.has("name") || !node.get("name").isString()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
-		if (!node.has("html_url") || !node.get("html_url").isTextual()) {
+		if (!node.has("html_url") || !node.get("html_url").isString()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
 		if (!node.has("stargazers_count") || !node.get("stargazers_count").isNumber()) {
@@ -281,16 +281,16 @@ public class DefaultGithubApiClient implements GithubApiClient {
 		if (!node.has("archived") || !node.get("archived").isBoolean()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
-		if (node.has("description") && !node.get("description").isTextual() && !node.get("description").isNull()) {
+		if (node.has("description") && !node.get("description").isString() && !node.get("description").isNull()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
-		if (node.has("homepage") && !node.get("homepage").isTextual() && !node.get("homepage").isNull()) {
+		if (node.has("homepage") && !node.get("homepage").isString() && !node.get("homepage").isNull()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
-		if (node.has("language") && !node.get("language").isTextual() && !node.get("language").isNull()) {
+		if (node.has("language") && !node.get("language").isString() && !node.get("language").isNull()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
-		if (node.has("pushed_at") && !node.get("pushed_at").isTextual() && !node.get("pushed_at").isNull()) {
+		if (node.has("pushed_at") && !node.get("pushed_at").isString() && !node.get("pushed_at").isNull()) {
 			throw new GithubUnexpectedResponseException("Unexpected response");
 		}
 		List<String> topics = List.of();
@@ -299,7 +299,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			if (tnode.isArray()) {
 				List<String> t = new ArrayList<>();
 				for (JsonNode n : tnode) {
-					if (!n.isTextual()) {
+					if (!n.isString()) {
 						throw new GithubUnexpectedResponseException("Unexpected response");
 					}
 					t.add(n.asString());
@@ -313,14 +313,14 @@ public class DefaultGithubApiClient implements GithubApiClient {
 		}
 		long id = node.get("id").longValue();
 		String name = node.get("name").asString();
-		String description = (node.has("description") && node.get("description").isNull()) ? null : (node.has("description") && node.get("description").isTextual() ? node.get("description").asString() : null);
+		String description = (node.has("description") && node.get("description").isNull()) ? null : (node.has("description") && node.get("description").isString() ? node.get("description").asString() : null);
 		String htmlUrl = node.get("html_url").asString();
-		String homepage = (node.has("homepage") && node.get("homepage").isNull()) ? null : (node.has("homepage") && node.get("homepage").isTextual() ? node.get("homepage").asString() : null);
-		String language = (node.has("language") && node.get("language").isNull()) ? null : (node.has("language") && node.get("language").isTextual() ? node.get("language").asString() : null);
+		String homepage = (node.has("homepage") && node.get("homepage").isNull()) ? null : (node.has("homepage") && node.get("homepage").isString() ? node.get("homepage").asString() : null);
+		String language = (node.has("language") && node.get("language").isNull()) ? null : (node.has("language") && node.get("language").isString() ? node.get("language").asString() : null);
 		long stargazersCount = node.get("stargazers_count").longValue();
 		boolean fork = node.get("fork").asBoolean();
 		boolean archived = node.get("archived").asBoolean();
-		String pushedAt = (node.has("pushed_at") && node.get("pushed_at").isNull()) ? null : (node.has("pushed_at") && node.get("pushed_at").isTextual() ? node.get("pushed_at").asString() : null);
+		String pushedAt = (node.has("pushed_at") && node.get("pushed_at").isNull()) ? null : (node.has("pushed_at") && node.get("pushed_at").isString() ? node.get("pushed_at").asString() : null);
 		return new GithubRepository(id, name, description, htmlUrl, homepage, language, topics, stargazersCount, fork, archived, pushedAt);
 	}
 }
