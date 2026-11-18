@@ -4,3 +4,5 @@ github:
   api-base-url: https://api.github.com
   connect-timeout: 3000
   read-timeout: 5000
+  cache-ttl-ms: 300000
+  cache-maximum-size: 100
