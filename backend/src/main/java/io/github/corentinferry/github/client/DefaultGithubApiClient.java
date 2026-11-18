@@ -15,6 +15,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
@@ -33,6 +34,7 @@ import java.util.regex.Pattern;
 public class DefaultGithubApiClient implements GithubApiClient {
 
 	private static final int MAX_PAGES = 10;
+	private static final String USER_AGENT = "portfolio-backend";
 	private static final Pattern LINK_PATTERN = Pattern.compile("<([^>]+)>;\\s*rel=\"next\"");
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultGithubApiClient.class);
 
@@ -65,12 +67,13 @@ public class DefaultGithubApiClient implements GithubApiClient {
 
 	@Override
 	public List<GithubRepository> listPublicRepositories() {
+		LOG.debug("Listing public repositories for owner {}", properties.getOwner());
 		String base = properties.getApiBaseUrl();
 		if (base.endsWith("/")) {
 			base = base.substring(0, base.length() - 1);
 		}
 		URI baseUri = URI.create(base);
-		String nextUrl = base + "/users/" + properties.getOwner() + "/repos?type=owner&sort=pushed&direction=desc&per_page=100&page=1";
+		String nextUrl = firstPageUri(base, properties.getOwner()).toString();
 		List<GithubRepository> all = new ArrayList<>();
 		int pages = 0;
 		while (nextUrl != null && pages < MAX_PAGES) {
@@ -86,7 +89,7 @@ public class DefaultGithubApiClient implements GithubApiClient {
 				ResponseEntity<String> response = restClient.get()
 						.uri(uri)
 						.header("Authorization", "Bearer " + properties.getToken())
-						.header("User-Agent", "portfolio-backend")
+						.header("User-Agent", USER_AGENT)
 						.header("X-GitHub-Api-Version", GithubProperties.GITHUB_API_VERSION)
 						.retrieve()
 						.toEntity(String.class);
@@ -113,6 +116,20 @@ public class DefaultGithubApiClient implements GithubApiClient {
 			throw new GithubPaginationViolationException("Pagination violation");
 		}
 		return all;
+	}
+
+	private static URI firstPageUri(String baseUrl, String owner) {
+		String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+		return UriComponentsBuilder.fromUriString(base)
+				.path("/users/{owner}/repos")
+				.queryParam("type", "owner")
+				.queryParam("sort", "pushed")
+				.queryParam("direction", "desc")
+				.queryParam("per_page", "100")
+				.queryParam("page", "1")
+				.encode()
+				.buildAndExpand(owner)
+				.toUri();
 	}
 
 	private RuntimeException mapException(RestClientResponseException e) {
@@ -224,6 +241,15 @@ public class DefaultGithubApiClient implements GithubApiClient {
 				}
 				if (node.get("private").asBoolean()) {
 					continue;
+				}
+				JsonNode visibility = node.get("visibility");
+				if (visibility != null && !visibility.isNull()) {
+					if (!visibility.isTextual()) {
+						throw new GithubUnexpectedResponseException("Unexpected response");
+					}
+					if (!"public".equals(visibility.asString())) {
+						continue;
+					}
 				}
 				result.add(map(node));
 			}

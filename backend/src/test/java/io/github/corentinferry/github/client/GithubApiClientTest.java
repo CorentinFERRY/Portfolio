@@ -18,6 +18,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,6 +63,64 @@ class GithubApiClientTest {
 	}
 
 	@Test
+	void sendsExactUserAgentHeader() {
+		String body = RepositoryResponses.repositoryPage(1, "fictional-repo", false);
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
+				.withHeader("User-Agent", equalTo("portfolio-backend"))
+				.willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		var repos = client.listPublicRepositories();
+		assertEquals(1, repos.size());
+		assertEquals("fictional-repo", repos.get(0).name());
+	}
+
+	private GithubProperties propsWithOwner(String owner) {
+		return new GithubProperties("test-token", "fictional-owner",
+				"http://localhost:" + server.port(), 3000, 5000) {
+			@Override
+			public String getOwner() {
+				return owner;
+			}
+		};
+	}
+
+	private String requestUrlAfterListing(GithubProperties properties) {
+		server.stubFor(get(WireMock.anyUrl()).willReturn(aResponse().withStatus(200).withBody("[]")));
+		new DefaultGithubApiClient(properties).listPublicRepositories();
+		return server.getAllServeEvents().get(0).getRequest().getUrl();
+	}
+
+	@Test
+	void encodesQuestionMarkInOwnerAsUriTemplateVariable() {
+		String url = requestUrlAfterListing(propsWithOwner("fictional-owner?type=evil"));
+		assertTrue(url.startsWith("/users/fictional-owner%3Ftype%3Devil/repos?"), url);
+		assertTrue(url.contains("type=owner"), url);
+		assertFalse(url.contains("type=evil"), url);
+	}
+
+	@Test
+	void encodesSlashInOwnerAsUriTemplateVariable() {
+		String url = requestUrlAfterListing(propsWithOwner("fictional-owner/extra"));
+		assertTrue(url.startsWith("/users/fictional-owner%2Fextra/repos?"), url);
+	}
+
+	@Test
+	void keepsBasePathPrefixWithoutTrailingSlash() {
+		GithubProperties prefixed = new GithubProperties("test-token", "fictional-owner",
+				"http://localhost:" + server.port() + "/api/v3", 3000, 5000);
+		String url = requestUrlAfterListing(prefixed);
+		assertTrue(url.startsWith("/api/v3/users/fictional-owner/repos?"), url);
+	}
+
+	@Test
+	void keepsBasePathPrefixWithTrailingSlash() {
+		GithubProperties prefixed = new GithubProperties("test-token", "fictional-owner",
+				"http://localhost:" + server.port() + "/api/v3/", 3000, 5000);
+		String url = requestUrlAfterListing(prefixed);
+		assertTrue(url.startsWith("/api/v3/users/fictional-owner/repos?"), url);
+	}
+
+	@Test
 	void dropsPrivateRepos() {
 		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", true) + "," + RepositoryResponses.repositoryJson(2, "r2", false) + "]";
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
@@ -69,6 +128,68 @@ class GithubApiClientTest {
 		var repos = client.listPublicRepositories();
 		assertEquals(1, repos.size());
 		assertEquals("r2", repos.get(0).name());
+	}
+
+	@Test
+	void dropsRepositoriesWithNonPublicVisibility() {
+		String body = "[" + RepositoryResponses.repositoryJson(1, "internal", false, "\"internal\"")
+				+ "," + RepositoryResponses.repositoryJson(2, "private", false, "\"private\"") + "]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertTrue(client.listPublicRepositories().isEmpty());
+	}
+
+	@Test
+	void keepsRepositoryWithPublicVisibility() {
+		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", false, "\"public\"") + "]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		var repos = client.listPublicRepositories();
+		assertEquals(1, repos.size());
+		assertEquals("r1", repos.get(0).name());
+	}
+
+	@Test
+	void nullVisibilityFallsBackToPrivateFlag() {
+		String body = "[" + RepositoryResponses.repositoryJson(1, "public-repo", false, "null")
+				+ "," + RepositoryResponses.repositoryJson(2, "private-repo", true, "null") + "]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		var repos = client.listPublicRepositories();
+		assertEquals(1, repos.size());
+		assertEquals("public-repo", repos.get(0).name());
+	}
+
+	@Test
+	void dropsPrivateRepositoryEvenWithPublicVisibility() {
+		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", true, "\"public\"") + "]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertTrue(client.listPublicRepositories().isEmpty());
+	}
+
+	@Test
+	void visibilityIsCaseSensitive() {
+		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", false, "\"Public\"") + "]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertTrue(client.listPublicRepositories().isEmpty());
+	}
+
+	@Test
+	void nonTextualVisibilityThrows() {
+		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", false, "123") + "]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubUnexpectedResponseException.class, () -> client.listPublicRepositories());
+	}
+
+	@Test
+	void missingPrivateFieldWithPublicVisibilityThrows() {
+		String body = "[{\"id\":1,\"name\":\"r1\",\"visibility\":\"public\",\"html_url\":\"u\",\"stargazers_count\":0,\"fork\":false,\"archived\":false}]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubUnexpectedResponseException.class, () -> client.listPublicRepositories());
 	}
 
 	@Test

@@ -147,6 +147,33 @@ class GithubPropertiesStartupValidationTest {
 	}
 
 	@Test
+	void applicationYmlDeclaresApiBaseUrlDefault() {
+		ApplicationContextRunner ymlRunner = new ApplicationContextRunner()
+				.withInitializer(context -> {
+					context.getEnvironment().getPropertySources()
+							.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
+					ConfigDataEnvironmentPostProcessor.applyTo(context.getEnvironment());
+				});
+		ymlRunner.run(context -> assertEquals("https://api.github.com",
+				context.getEnvironment().getProperty("github.api-base-url")));
+	}
+
+	@Test
+	void blankApiBaseUrlEnvironmentFallsBackToDefaultThroughApplicationYml() {
+		Map<String, Object> env = new HashMap<>();
+		env.put("GITHUB_API_BASE_URL", "");
+		envRunnerWithSystemEnvironment(env)
+				.withPropertyValues(
+						"github.owner=" + VALID_OWNER,
+						"github.token=" + TOKEN_SENTINEL)
+				.run(context -> {
+					assertNull(context.getStartupFailure(), "context should have started");
+					assertEquals("https://api.github.com",
+							context.getBean(GithubProperties.class).getApiBaseUrl());
+				});
+	}
+
+	@Test
 	void defaultsFromApplicationYmlWhenNoEnvVar() {
 		ApplicationContextRunner ymlRunner = new ApplicationContextRunner()
 				.withUserConfiguration(GithubPropertiesConfig.class)

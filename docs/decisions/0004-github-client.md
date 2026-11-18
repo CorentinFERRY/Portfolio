@@ -1,6 +1,7 @@
 # 0004 - GitHub client design
 
 Date: 2026-10-09
+Review date: 2026-11-17
 Status: Accepted
 
 ## Context
@@ -11,9 +12,18 @@ We need a GitHub client to list public repositories for a single owner via the G
 - Use Spring `RestClient` with `SimpleClientHttpRequestFactory`; set timeouts from properties and disable redirect following (`setInstanceFollowRedirects(false)`).
 - Send headers: `Authorization: Bearer <token>` (only if token present), `User-Agent`, `X-GitHub-Api-Version: 2022-11-28`.
 - Query defaults: `type=owner`, `sort=pushed`, `direction=desc`, `per_page=100`, `page=1`.
-- Filter: keep only repos where `private` is explicitly `false`. If `private` missing/wrong type -> `GithubUnexpectedResponseException` (fail closed).
+- Filter: `private` is mandatory and must be explicitly `false`; missing or wrong type -> `GithubUnexpectedResponseException` (fail closed). When `private` is `false`, keep the repo only if `visibility` is absent or `null`, or exactly `public` (case-sensitive). If `visibility` is present, non-null and non-textual -> `GithubUnexpectedResponseException`; any other visibility value is dropped.
 - Pagination: parse `Link` header for `rel="next"`. Enforce same-origin (scheme/host/port, with defaults for http/https). Cap total pages at 10. If next exists after last allowed page -> `GithubPaginationViolationException`.
 - Error mapping: 401 -> `GithubAuthenticationFailureException`, 403 -> `GithubRateLimitExceededException` if `x-ratelimit-remaining` == "0" or `Retry-After` present, else `GithubAccessDeniedException`, 404 -> `GithubOwnerNotFoundException`, 429 -> `GithubRateLimitExceededException`, 5xx -> `GithubUnavailableException`, 3xx -> `GithubUnexpectedResponseException`, other client errors -> `GithubUnexpectedResponseException`.
 - Rate limit info: include `x-ratelimit-reset` epoch seconds in exception when available.
 - Secrets: token redacted from `toString()`, never logged, never in exception messages.
 - Tolerance: ignore unknown fields, accept nulls for optional fields, treat missing `topics` as empty list; wrong types/null where boolean/number/string required -> `GithubUnexpectedResponseException`, non-array root -> `GithubUnexpectedResponseException`.
+
+## Verification notes (2026-11-17)
+
+- GitHub documentation pages: non vérifié. No external documentation page is asserted as verified for this decision.
+- WireMock choice: `org.wiremock:wiremock-standalone:3.13.2` is test-scoped (`backend/pom.xml`, dependency `wiremock-standalone`) and is used as the local HTTP server in the client tests (`GithubApiClientTest#listsPublicRepositoriesFiltersAndMapsFields`, `GithubApiClientPaginationTest#followsPagination`, `GithubApiClientOpenApiFixtureTest#deserializesOfficialExampleAndIgnoresUnknownFields`, `GithubApiClientSecondServerTest#nextLinkToSecondServerIsRejectedWithoutRequest`). This simulates the GitHub API as required by `AGENTS.md`, section 8; WireMock is listed in section 3; the tests use fake credentials (`GithubApiClientTest#listsPublicRepositoriesFiltersAndMapsFields`) and verify the Authorization header (`GithubApiClientDebugLoggingTest#debugLogsNeverContainTheToken`).
+- Error and pagination behaviour is proven by tests that need no real GitHub API: headers and filtering (`GithubApiClientTest#listsPublicRepositoriesFiltersAndMapsFields`, `GithubApiClientTest#dropsPrivateRepos`), pagination and origin rejection (`GithubApiClientPaginationTest#followsPagination`, `GithubApiClientPaginationTest#throwsWhenNextLinkHasDifferentHost`, `GithubApiClientPaginationTest#throwsWhenPageCapExceededAndMakesExactlyTenRequests`, `GithubApiClientSecondServerTest#nextLinkToSecondServerIsRejectedWithoutRequest`, `GithubApiClientSecondServerTest#redirectToSecondServerIsRejectedWithoutRequest`), error mapping (`GithubApiClientErrorTest#throwsAuthenticationFailureOn401`, `GithubApiClientErrorTest#throwsRateLimitOn429`, `GithubApiClientErrorTest#throwsOwnerNotFoundOn404`). Detailed traceability is in `docs/slice2-requirements.md`.
+- Fixture provenance: the official description was downloaded on 2026-11-17 from `https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.yaml`; endpoint `GET /users/{username}/repos`, 200 response example `minimal-repository-items` (header of `GithubApiClientOpenApiFixtureTest`). The full dotted source path `components.examples.minimal-repository-items.value` is non vérifié from tracked sources. Source YAML SHA-256 `1852a9284fbd7b2d7eda16b96fac8115255b9ea84805d8bafffd227010270fd4` and `info.version` 1.1.4 are recorded in that header; the client API version is 2022-11-28.
+- Fixture file: `backend/src/test/resources/github/openapi-user-repos-example.json`, loaded from the classpath by `GithubApiClientOpenApiFixtureTest#deserializesOfficialExampleAndIgnoresUnknownFields`; SHA-256 `f9b4508f02a388fdf6bd7da37443f1728c213788fe706643fcf6edb12373f09e` is recorded in the `GithubApiClientOpenApiFixtureTest` header and was checked locally on 2026-11-17.
+- License: the repository LICENSE file is non vérifié (header of `GithubApiClientOpenApiFixtureTest`). A 2026-11-17 GET to `https://raw.githubusercontent.com/github/rest-api-description/main/LICENSE` returned HTTP 404, 14 bytes (`404: Not Found`); no license text was stored in the repository. The declaration recorded in the downloaded description is not treated as a verified repository license.

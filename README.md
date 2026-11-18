@@ -177,8 +177,30 @@ cd backend
 Required variables (documented with fake values in `.env.example` only):
 - `GITHUB_TOKEN`: fine-grained, read-only token for the GitHub API (never committed)
 - `GITHUB_OWNER`: GitHub account/owner to list public repositories for
-- `GITHUB_API_BASE_URL`: optional, defaults to https://api.github.com
+- `GITHUB_API_BASE_URL`: optional, blank or unset falls back to https://api.github.com
 - `GITHUB_CONNECT_TIMEOUT_MS`: optional, defaults to 3000 ms
 - `GITHUB_READ_TIMEOUT_MS`: optional, defaults to 10000 ms
 
 Never commit `.env` files. Tokens must never appear in frontend, logs, API responses, tests or Git history.
+
+## GitHub client verification
+
+Review date: 2026-11-17. The decision date of ADR 0004 remains 2026-10-09
+(`docs/decisions/0004-github-client.md`, field `Date`). Test provenance is
+tracked in `docs/slice2-requirements.md`.
+
+- GitHub documentation pages: non vérifié. No external documentation page is
+  claimed as verified for this client.
+- WireMock 3.13.2 is a test-scope dependency (`backend/pom.xml`, dependency
+  `wiremock-standalone`) used as the local HTTP server by the client tests
+  (`GithubApiClientTest#listsPublicRepositoriesFiltersAndMapsFields`,
+  `GithubApiClientPaginationTest#followsPagination`,
+  `GithubApiClientOpenApiFixtureTest#deserializesOfficialExampleAndIgnoresUnknownFields`,
+  `GithubApiClientSecondServerTest#nextLinkToSecondServerIsRejectedWithoutRequest`)
+  instead of calling the real GitHub API (`AGENTS.md`, section 8; WireMock is
+  listed in section 3).
+- Fixture provenance: recorded in `docs/decisions/0004-github-client.md` and in
+  the `GithubApiClientOpenApiFixtureTest` class header.
+- OpenAPI source repository LICENSE: non vérifié. A 2026-11-17 GET to
+  `https://raw.githubusercontent.com/github/rest-api-description/main/LICENSE`
+  returned HTTP 404, 14 bytes; no license text was stored in this repository.
