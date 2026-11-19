@@ -1,6 +1,6 @@
 package io.github.corentinferry.github.client;
 
-import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Policy;
 import io.github.corentinferry.github.GithubProperties;
 import org.junit.jupiter.api.Test;
@@ -59,11 +59,11 @@ class GithubApiClientWiringTest {
 	void cacheReceivesValidatedConfiguration() {
 		CachingGithubApiClient client = context.getBean(CachingGithubApiClient.class);
 		GithubProperties properties = context.getBean(GithubProperties.class);
-		Cache<Object, ?> cache = (Cache<Object, ?>) ReflectionTestUtils.getField(client, "cache");
+		AsyncCache<Object, ?> cache = (AsyncCache<Object, ?>) ReflectionTestUtils.getField(client, "cache");
 
 		assertSame(properties, ReflectionTestUtils.getField(client, "properties"));
 		assertNotNull(cache);
-		Policy<Object, ?> policy = cache.policy();
+		Policy<Object, ?> policy = cache.synchronous().policy();
 		assertEquals(7L, policy.eviction().orElseThrow().getMaximum());
 		assertEquals(Duration.ofMillis(12345), policy.expireAfterWrite().orElseThrow().getExpiresAfter());
 	}
