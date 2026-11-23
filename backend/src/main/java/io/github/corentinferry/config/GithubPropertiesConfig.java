@@ -1,6 +1,7 @@
 package io.github.corentinferry.config;
 
 import io.github.corentinferry.github.GithubProperties;
+import io.github.corentinferry.github.client.CachingGithubApiClient;
 import io.github.corentinferry.github.client.DefaultGithubApiClient;
 import io.github.corentinferry.github.client.GithubApiClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,6 +14,6 @@ public class GithubPropertiesConfig {
 
 	@Bean
 	public GithubApiClient githubApiClient(GithubProperties properties) {
-		return new DefaultGithubApiClient(properties);
+		return new CachingGithubApiClient(new DefaultGithubApiClient(properties), properties);
 	}
 }

@@ -1,5 +1,7 @@
 package io.github.corentinferry.github.client;
 
+import com.github.benmanes.caffeine.cache.AsyncCache;
+import com.github.benmanes.caffeine.cache.Policy;
 import io.github.corentinferry.github.GithubProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,8 +11,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 @ActiveProfiles("test")
@@ -20,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 	"github.owner=testowner",
 	"github.api-base-url=http://localhost:18080",
 	"github.connect-timeout=1234",
-	"github.read-timeout=4321"
+	"github.read-timeout=4321",
+	"github.cache-ttl-ms=12345",
+	"github.cache-maximum-size=7"
 })
 class GithubApiClientWiringTest {
 
@@ -30,18 +37,34 @@ class GithubApiClientWiringTest {
 	@Test
 	void contextExposesSingleGithubApiClientBean() {
 		assertEquals(1, context.getBeansOfType(GithubApiClient.class).size());
+		assertEquals(0, context.getBeansOfType(DefaultGithubApiClient.class).size());
 		GithubApiClient client = context.getBean(GithubApiClient.class);
-		assertInstanceOf(DefaultGithubApiClient.class, client);
+		assertInstanceOf(CachingGithubApiClient.class, client);
 	}
 
 	@Test
 	void clientReceivesValidatedConfiguration() {
-		GithubApiClient client = context.getBean(GithubApiClient.class);
+		CachingGithubApiClient client = context.getBean(CachingGithubApiClient.class);
 		GithubProperties properties = context.getBean(GithubProperties.class);
+		GithubApiClient delegate = (GithubApiClient) ReflectionTestUtils.getField(client, "delegate");
 
-		assertSame(properties, ReflectionTestUtils.getField(client, "properties"));
+		assertInstanceOf(DefaultGithubApiClient.class, delegate);
+		assertSame(properties, ReflectionTestUtils.getField(delegate, "properties"));
 		assertEquals("http://localhost:18080", properties.getApiBaseUrl());
 		assertEquals(1234, properties.getConnectTimeout());
 		assertEquals(4321, properties.getReadTimeout());
+	}
+
+	@Test
+	void cacheReceivesValidatedConfiguration() {
+		CachingGithubApiClient client = context.getBean(CachingGithubApiClient.class);
+		GithubProperties properties = context.getBean(GithubProperties.class);
+		AsyncCache<Object, ?> cache = (AsyncCache<Object, ?>) ReflectionTestUtils.getField(client, "cache");
+
+		assertSame(properties, ReflectionTestUtils.getField(client, "properties"));
+		assertNotNull(cache);
+		Policy<Object, ?> policy = cache.synchronous().policy();
+		assertEquals(7L, policy.eviction().orElseThrow().getMaximum());
+		assertEquals(Duration.ofMillis(12345), policy.expireAfterWrite().orElseThrow().getExpiresAfter());
 	}
 }

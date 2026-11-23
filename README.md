@@ -180,8 +180,27 @@ Required variables (documented with fake values in `.env.example` only):
 - `GITHUB_API_BASE_URL`: optional, blank or unset falls back to https://api.github.com
 - `GITHUB_CONNECT_TIMEOUT_MS`: optional, defaults to 3000 ms
 - `GITHUB_READ_TIMEOUT_MS`: optional, defaults to 10000 ms
+- `GITHUB_CACHE_TTL_MS`: optional, defaults to 300000 ms; must be strictly positive
+- `GITHUB_CACHE_MAXIMUM_SIZE`: optional, defaults to 100; must be strictly positive
+
+A non-positive cache TTL or maximum size stops startup instead of falling back
+to the default.
 
 Never commit `.env` files. Tokens must never appear in frontend, logs, API responses, tests or Git history.
+
+## GitHub client cache
+
+The backend caches the repository list for the configured owner in memory with
+Caffeine. A second call within the TTL reuses the same immutable list, including
+when the first result was empty. After the TTL, the next call reloads from
+GitHub; if GitHub fails, the exception is raised and no stale value is served.
+Failures are never cached; a later call retries. Concurrent callers
+share the in-flight load: one HTTP request serves all of them, and they receive
+the same exception type if it fails. The maximum cache size is a defensive bound;
+with a single owner key it does not trigger eviction.
+
+The official build command is `cd backend && ./mvnw clean verify` (AGENTS.md
+section 4).
 
 ## GitHub client verification
 
