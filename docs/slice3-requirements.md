@@ -9,10 +9,9 @@ Every row is a testable requirement and names at least one executable test as
 `Class#method`. Line numbers are deliberately not used because they drift when
 tests change. "No recorded mutation proof" means no verifiable mutation proof
 is recorded for that test; it is not a claim that the behaviour is untestable.
-Mutation proofs are described by their effect only. Proofs marked `properties
-only, independent of the cache implementation` were run before any cache existed;
-proofs marked `synchronous` were run on the earlier synchronous cache, before
-AsyncCache; proofs marked `final AsyncCache` were run on the final implementation.
+Mutation proofs are described by their effect only. All mutation proofs were
+run on the final AsyncCache implementation, except the rows marked `properties
+only, independent of the cache implementation`, which do not depend on the cache.
 
 ## Requirements proved by tests
 
@@ -24,7 +23,7 @@ AsyncCache; proofs marked `final AsyncCache` were run on the final implementatio
 | Valid cache properties and environment variables bind | `GithubCachePropertiesStartupValidationTest#validCachePropertiesBind`; `GithubCachePropertiesStartupValidationTest#envVarGITHUB_CACHE_TTL_MSBoundViaSystemEnvironmentSource`; `GithubCachePropertiesStartupValidationTest#envVarGITHUB_CACHE_MAXIMUM_SIZEBoundViaSystemEnvironmentSource` | Valid values and both environment variables bind. No recorded mutation proof. |
 | The context exposes a single caching client and the delegate receives the validated configuration | `GithubApiClientWiringTest#contextExposesSingleGithubApiClientBean`; `GithubApiClientWiringTest#clientReceivesValidatedConfiguration` | Removing the decorator from the wiring made the bean test fail with "expected: <0> but was: <1>" for the default client and the configuration test fail with `NoSuchBeanDefinitionException`. `final AsyncCache` |
 | The cache policy receives the validated TTL and maximum size | `GithubApiClientWiringTest#cacheReceivesValidatedConfiguration` | A hardcoded TTL of `300000` made the test fail with "expected: <PT12.345S> but was: <PT5M>"; a hardcoded size of `100` made it fail with "expected: <7> but was: <100>". `final AsyncCache` |
-| Repeated calls reuse the repository list, including an empty result | `CachingGithubApiClientTest#secondCallDoesNotSendRequest`; `CachingGithubApiClientTest#emptyResultIsCached` | A direct call to the delegate made both tests fail with "Expected exactly 1 requests ... but received 2" on `/users/fictional-owner/repos`. `synchronous` |
+| Repeated calls reuse the repository list, including an empty result | `CachingGithubApiClientTest#secondCallDoesNotSendRequest`; `CachingGithubApiClientTest#emptyResultIsCached` | A direct call to the delegate made both tests fail with "Expected exactly 1 requests ... but received 2" on `/users/fictional-owner/repos`. `final AsyncCache` |
 | The cached list is immutable for callers | `CachingGithubApiClientTest#cachedListIsImmutable` | Removing the immutable copy made the test fail with "Expected java.lang.UnsupportedOperationException to be thrown, but nothing was thrown." `final AsyncCache` |
 | The value is kept before the TTL and reloaded after it | `CachingGithubApiClientExpiryTest#doesNotExpireBeforeTtl`; `CachingGithubApiClientExpiryTest#expiresAfterTtl` | A hardcoded TTL of `500` ms made the first test fail with "received 2"; a hardcoded TTL of `300000`, removing the ticker, or using `Duration.ofSeconds` made the second fail with "received 1" instead of "2". `final AsyncCache` |
 | An expired value is never served after a GitHub failure | `CachingGithubApiClientExpiryTest#expiredValueIsNotServedWhenGithubFails` | A stale-on-error fallback made the test fail with "Expected GithubUnavailableException to be thrown, but nothing was thrown." `final AsyncCache` |
