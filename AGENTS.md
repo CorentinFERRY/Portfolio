@@ -40,6 +40,7 @@ Keep this section up to date. Always use these exact commands.
 - Backend tests: `cd backend && ./mvnw test`
 - Backend full build: `cd backend && ./mvnw clean verify`
 - Backend run: `cd backend && ./mvnw spring-boot:run`
+- Backend jar run (after a build): `cd backend && java -jar target/portfolio-backend-0.0.1-SNAPSHOT.jar`
 - Script tests: `sh .githooks/commit-msg.test.sh` and `sh .github/scripts/check-commits.test.sh`, the tests of the hook and of the CI scripts, to run whenever those files change
 - Frontend install / tests / dev / build: `TO FILL`
 
