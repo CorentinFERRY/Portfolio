@@ -1,3 +1,6 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:portfolio-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
 github:
   token: test-token
   owner: testowner

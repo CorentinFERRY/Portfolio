@@ -44,6 +44,17 @@ Technical decisions are recorded as short notes in `docs/decisions/`.
 The commands are kept in AGENTS.md section 4; always use the exact commands
 recorded there.
 
+Build the backend first with the full build command, then start the packaged jar
+from `backend/` so the relative H2 URL resolves inside this module:
+
+```sh
+cd backend && java -jar target/portfolio-backend-0.0.1-SNAPSHOT.jar
+```
+
+Export the GitHub variables described below before starting the jar. Never pass
+the token as a command-line argument: it would be visible in `ps` and in the
+shell history.
+
 ## Getting started
 
 ```sh
@@ -58,6 +69,18 @@ cp .env.example .env
 
 Then fill in `.env` with real values. `.env` is ignored by Git and must never be
 committed; `.env.example` holds fake values only.
+
+## Local persistence
+
+The backend stores the published repository selection in a local H2 file. The
+URL `jdbc:h2:file:./data/portfolio` is relative to the launch directory: started
+from `backend/`, the file is `backend/data/portfolio.mv.db`; started from the
+repository root, it would be `./data/portfolio.mv.db`. H2 files (`*.mv.db`) are
+ignored by Git.
+
+Tests use the in-memory H2 database from `application-test.yml`, and the H2
+console is disabled. The schema and the persistence decisions are recorded in
+`docs/decisions/0006-selection-persistence.md`.
 
 ## Git workflow
 
@@ -173,6 +196,10 @@ set +a
 cd backend
 ./mvnw spring-boot:run
 ```
+
+The same exported variables apply to the packaged jar command in the Commands
+section. `.env.example` is the only committed template and contains fake values;
+the token must come from the environment, never from a command-line argument.
 
 Required variables (documented with fake values in `.env.example` only):
 - `GITHUB_TOKEN`: fine-grained, read-only token for the GitHub API (never committed)

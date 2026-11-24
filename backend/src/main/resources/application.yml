@@ -1,6 +1,18 @@
 spring:
   application:
     name: portfolio-backend
+  datasource:
+    url: jdbc:h2:file:./data/portfolio
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  h2:
+    console:
+      enabled: false
 github:
   api-base-url: ${GITHUB_API_BASE_URL:https://api.github.com}
   connect-timeout: ${GITHUB_CONNECT_TIMEOUT_MS:3000}
