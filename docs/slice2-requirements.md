@@ -28,7 +28,7 @@ contains the proof.
 | Optional nulls are accepted, wrong types and non-array roots fail, empty arrays stay empty | `GithubApiClientTest#nullFieldsAccepted`; `GithubApiClientTest#wrongTypeThrows`; `GithubApiClientTest#notArrayThrows`; `GithubApiClientTest#emptyArrayReturnsEmpty` | aucune mutation connue | Null optional fields are tolerated; wrong id type and object root raise `GithubUnexpectedResponseException`; an empty array returns no repositories. |
 | Non-public visibility is dropped | `GithubApiClientTest#dropsRepositoriesWithNonPublicVisibility`; `GithubApiClientTest#keepsRepositoryWithPublicVisibility`; `GithubApiClientTest#nullVisibilityFallsBackToPrivateFlag`; `GithubApiClientTest#dropsPrivateRepositoryEvenWithPublicVisibility`; `GithubApiClientTest#visibilityIsCaseSensitive` | Removing the non-public visibility drop made `GithubApiClientTest#dropsRepositoriesWithNonPublicVisibility` and `GithubApiClientTest#visibilityIsCaseSensitive` fail. Commit `65c3d62`. | `internal` and `private` are dropped; `public` is kept; null falls back to `private`; a private repository stays dropped even with `visibility: public`. |
 | Visibility comparison is case-sensitive | `GithubApiClientTest#visibilityIsCaseSensitive` | Replacing the exact `public` comparison with a case-insensitive comparison made `GithubApiClientTest#visibilityIsCaseSensitive` fail. Commit `65c3d62`. | `Public` is not treated as `public`. |
-| Non-textual visibility fails closed | `GithubApiClientTest#nonTextualVisibilityThrows` | Removing the non-textual visibility rejection made `GithubApiClientTest#nonTextualVisibilityThrows` fail. Commit `65c3d62`. | Numeric visibility raises `GithubUnexpectedResponseException`. |
+| Non-textual visibility fails closed | `GithubApiClientTest#nonTextualVisibilityThrows` | Replaying the mutation on the final code — replacing `if (!visibility.isString())` with `if (false)` — made `GithubApiClientTest#nonTextualVisibilityThrows` fail with `Expected io.github.corentinferry.github.exception.GithubUnexpectedResponseException to be thrown, but nothing was thrown`. | Numeric visibility raises `GithubUnexpectedResponseException`. |
 | Pagination follows `Link rel="next"` | `GithubApiClientPaginationTest#followsPagination` | aucune mutation connue | Two pages are fetched and both repositories are returned. |
 | Same-origin is enforced for next links | `GithubApiClientPaginationTest#throwsWhenNextLinkHasDifferentHost`; `GithubApiClientPaginationTest#throwsWhenNextLinkHostStartsWithBaseHost`; `GithubApiClientPaginationTest#throwsWhenNextLinkHasDifferentPort`; `GithubApiClientPaginationTest#throwsWhenNextLinkHasDifferentScheme`; `GithubApiClientPaginationTest#throwsWhenNextLinkIsInvalidUri`; `GithubApiClientPaginationTest#throwsWhenNextLinkHasCredentials`; `GithubApiClientPaginationTest#throwsWhenNextLinkHostHasTrailingDot`; `GithubApiClientSecondServerTest#nextLinkToSecondServerIsRejectedWithoutRequest` | Removing `ensureSameOrigin(baseUri, uri)` made `GithubApiClientSecondServerTest#nextLinkToSecondServerIsRejectedWithoutRequest` fail: expected `GithubPaginationViolationException` was not thrown and the second server received 1 request instead of 0. Commit `f29012f`. | Every origin variant is rejected before a request is sent; the malformed URL is not echoed. |
 | Page cap is 10 with no request beyond it | `GithubApiClientPaginationTest#throwsWhenPageCapExceededAndMakesExactlyTenRequests` | aucune mutation connue | The client throws after exactly 10 requests and never requests page 11. |
@@ -58,3 +58,27 @@ contains the proof.
 The WireMock dependency, documentation, this table and the full build are
 build or documentation activities, not testable requirements; they are not
 listed as gaps.
+
+## Slice 2c string type checks
+
+The gap is narrowed: eight usages are proven, four are deduced unreachable and
+remain unproven.
+
+OBSERVED: 8 of the 12 `isString` usages now have a test with a non-null
+invalid type (`42`): seven cases in `GithubApiClientTest#nonStringFieldsThrow`
+(`name`, `html_url`, `description`, `homepage`, `language`, `pushed_at` and the
+first `topics` element) and `GithubApiClientTest#nonTextualVisibilityThrows`
+for `visibility`. The 8 mutations were replayed on the final code; each turned
+exactly one test red with `Expected io.github.corentinferry.github.exception.GithubUnexpectedResponseException to be thrown, but nothing was thrown`.
+
+DEDUCED: the four extraction usages (`description`, `homepage`, `language` and
+`pushed_at` in the extraction part of the mapping method) only receive `null`
+or a string, because the preceding validation throws first. They are not
+covered by a test; no reflection-based test was written deliberately.
+
+LIMIT: only one invalid type is tested (a number). The tests were green as soon
+as they were written; their value comes from the mutations.
+
+OPEN POINT: the four extraction lines look like unreachable defensive code.
+AGENTS.md section 10 forbids dead code. Address this later, outside this
+slice, because "do only what the slice asks".
