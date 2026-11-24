@@ -9,8 +9,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -240,5 +244,27 @@ class GithubApiClientTest {
 		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos")).willReturn(aResponse().withStatus(200).withBody(body)));
 		GithubApiClient client = new DefaultGithubApiClient(props);
 		assertTrue(client.listPublicRepositories().isEmpty());
+	}
+
+	private static Stream<Arguments> nonStringFields() {
+		return Stream.of(
+				Arguments.of("name", "\"name\":\"r1\"", "\"name\":42"),
+				Arguments.of("html_url", "\"html_url\":\"https://example.com/fictional-owner/r1\"", "\"html_url\":42"),
+				Arguments.of("description", "\"description\":\"desc\"", "\"description\":42"),
+				Arguments.of("homepage", "\"homepage\":\"https://example.com\"", "\"homepage\":42"),
+				Arguments.of("language", "\"language\":\"Java\"", "\"language\":42"),
+				Arguments.of("pushed_at", "\"pushed_at\":\"2026-10-09T00:00:00Z\"", "\"pushed_at\":42"),
+				Arguments.of("topics[0]", "\"topics\":[\"demo\"]", "\"topics\":[42]"));
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("nonStringFields")
+	void nonStringFieldsThrow(String caseName, String validFragment, String invalidFragment) {
+		String body = "[" + RepositoryResponses.repositoryJson(1, "r1", false)
+				.replace(validFragment, invalidFragment) + "]";
+		server.stubFor(get(urlPathEqualTo("/users/fictional-owner/repos"))
+				.willReturn(aResponse().withStatus(200).withBody(body)));
+		GithubApiClient client = new DefaultGithubApiClient(props);
+		assertThrows(GithubUnexpectedResponseException.class, () -> client.listPublicRepositories(), caseName);
 	}
 }
