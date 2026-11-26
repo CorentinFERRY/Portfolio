@@ -21,6 +21,7 @@ public class SecurityConfig {
 						.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/projects").permitAll()
 						.anyRequest().denyAll())
 				.build();
 	}
