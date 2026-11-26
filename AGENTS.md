@@ -42,7 +42,13 @@ Keep this section up to date. Always use these exact commands.
 - Backend run: `cd backend && ./mvnw spring-boot:run`
 - Backend jar run (after a build): `cd backend && java -jar target/portfolio-backend-0.0.1-SNAPSHOT.jar`
 - Script tests: `sh .githooks/commit-msg.test.sh` and `sh .github/scripts/check-commits.test.sh`, the tests of the hook and of the CI scripts, to run whenever those files change
-- Frontend install / tests / dev / build: `TO FILL`
+- Frontend install: `cd frontend && npm ci`
+- Frontend tests: `cd frontend && npm test`
+- Frontend type-check: `cd frontend && npm run type-check`
+- Frontend dev: `cd frontend && npm run dev`
+- Frontend build: `cd frontend && npm run build`
+- Frontend preview: `cd frontend && npm run preview`
+- Frontend dependency changes: use `npm install` only to add an approved dependency; otherwise use `npm ci`
 
 ## 5. How to work
 
