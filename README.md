@@ -31,13 +31,30 @@ AGENTS.md   Conventions and rules for AI coding agents working in this repositor
 `AGENTS.md` holds the conventions and rules that any AI coding agent working in
 this repository must follow.
 
-`backend/` is the Spring Boot skeleton and `frontend/` is still a placeholder.
-Technical decisions are recorded as short notes in `docs/decisions/`.
+`backend/` is the Spring Boot skeleton and `frontend/` contains the Vue 3
+TypeScript skeleton. Technical decisions are recorded as short notes in
+`docs/decisions/`.
 
 ## Prerequisites
 
 - Java 21. Maven is not needed: the Maven wrapper is committed, so `./mvnw` in
   `backend/` downloads and runs the required Maven version.
+
+## Frontend
+
+Prerequisite: Node 26. From `frontend/`, run `nvm use` (`.nvmrc` is provided).
+
+```sh
+cd frontend
+npm ci
+npm test
+npm run type-check
+npm run dev
+npm run build
+npm run preview
+```
+
+Use `npm install` only to add an approved dependency; otherwise use `npm ci`.
 
 ## Commands
 
