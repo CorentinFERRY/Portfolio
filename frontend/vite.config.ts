@@ -13,4 +13,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: process.env.PORTFOLIO_BACKEND_URL ?? 'http://127.0.0.1:8080',
+      },
+    },
+  },
 })
