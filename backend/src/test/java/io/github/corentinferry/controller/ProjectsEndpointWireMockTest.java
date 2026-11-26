@@ -45,8 +45,12 @@ class ProjectsEndpointWireMockTest {
 	private RepositorySelectionRepository selectionRepository;
 
 	@DynamicPropertySource
-	static void configureGithubBaseUrl(DynamicPropertyRegistry registry) {
+	static void configureGithubProperties(DynamicPropertyRegistry registry) {
 		registry.add("github.api-base-url", () -> "http://localhost:" + SERVER.port());
+		registry.add("github.owner", () -> "testowner");
+		registry.add("github.token", () -> "test-token");
+		registry.add("github.cache-ttl-ms", () -> "300000");
+		registry.add("github.cache-maximum-size", () -> "100");
 	}
 
 	@BeforeAll
