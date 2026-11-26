@@ -100,3 +100,56 @@ replayed red in this group.
 - The group C smoke test must prove that `GET /api/projects` reaches the local
   backend through Vite, without any real GitHub call.
 - The decision notes for groups B and C remain open for their own sessions.
+
+## Slice 7 - Group B (ProjectCard)
+
+Scope: one presentational `ProjectCard.vue` with no style. `App.vue`, the
+projects service and dependency files are unchanged. No new dependency. The
+`data-test` attributes are test hooks only; they add no styling or behaviour.
+
+### Decisions
+
+1. The repository link opens in a new tab with `target="_blank"` and carries
+   both `noopener` and `noreferrer`. Homepage links use the same attributes.
+   Tests: `ProjectCard.spec.ts > renders the name as a repository link with target blank and both rel tokens`
+   and `ProjectCard.spec.ts > renders homepage as a link with target blank and both rel tokens`.
+2. Nullable fields (`description`, `homepage`, `language`, `pushedAt`) render
+   nothing: no `null` text, no label and no empty element. One test per field:
+   `renders nothing for a null description`, `renders nothing for a null homepage`,
+   `renders nothing for a null language` and `renders nothing for a null pushedAt`.
+3. `id` is never rendered, neither in the text nor in the HTML. Test:
+   `ProjectCard.spec.ts > never renders the project id`.
+4. `pushedAt` is copied unchanged into a `<time>` element and its `datetime`
+   attribute. Test: `ProjectCard.spec.ts > renders pushedAt unchanged in a time element with its datetime attribute`.
+   Local formatting is a debt deferred to slice 12.
+5. External text is rendered by interpolation only. A name and a description
+   containing `<img src=x onerror=alert(1)>` stay literal, create no `img`
+   element and create no `onerror` attribute. Test:
+   `ProjectCard.spec.ts > escapes an img onerror payload in name and description`.
+   The existing `no-v-html.spec.ts` guard stays green in the whole suite.
+6. A URL is linked only after `new URL(value)` succeeds and `protocol` is
+   `https:`. A rejected `htmlUrl` leaves the name as plain text; a rejected
+   `homepage` is not rendered at all, exactly like a `null` homepage. Tests
+   cover `javascript:`, `http:` and unparseable values for both fields:
+   `renders the name as text when htmlUrl uses javascript:`,
+   `renders the name as text when htmlUrl uses http:`,
+   `renders the name as text when htmlUrl cannot be parsed` and
+   `renders nothing for homepage when it is not a valid https URL` (3 cases).
+
+### Status
+
+| Requirement | Test | Status |
+| --- | --- | --- |
+| Repository and homepage links use `_blank` and both rel tokens | the two dedicated link tests above | OBSERVE |
+| Null fields render nothing | the four dedicated null tests above | OBSERVE |
+| `id` is absent | `never renders the project id` | OBSERVE |
+| Raw `pushedAt` in text and `datetime` | `renders pushedAt unchanged in a time element with its datetime attribute` | OBSERVE |
+| Escaped external text | `escapes an img onerror payload in name and description` | OBSERVE |
+| HTTPS-only links and no rendering for invalid homepage | the four URL test names above | OBSERVE |
+
+### LIMITE
+
+- `pushedAt` formatting is deferred to slice 12; the component passes the ISO
+  string through without any locale or timezone conversion.
+- Mutation proofs are replayed only after the owner commits, from a clean tree
+  with an empty `git diff`; no mutation result is claimed in this section.
