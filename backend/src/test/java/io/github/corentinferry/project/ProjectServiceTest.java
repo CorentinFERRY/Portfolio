@@ -113,7 +113,9 @@ class ProjectServiceTest {
 				Arguments.of("http://example.invalid"),
 				Arguments.of(""),
 				Arguments.of("https://exa mple.invalid"),
-				Arguments.of("https:"));
+				Arguments.of("https:"),
+				Arguments.of("https:/path"),
+				Arguments.of("https:///path"));
 	}
 
 	@Test
@@ -142,7 +144,9 @@ class ProjectServiceTest {
 	private static Stream<Arguments> unsafeHtmlUrls() {
 		return Stream.of(
 				Arguments.of("http://example.invalid/insecure"),
-				Arguments.of("https://exa mple.invalid/x"));
+				Arguments.of("https://exa mple.invalid/x"),
+				Arguments.of("https:/path"),
+				Arguments.of("https:///path"));
 	}
 
 	@Test

@@ -7,6 +7,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import ch.qos.logback.core.read.ListAppender;
 import io.github.corentinferry.github.client.GithubApiClient;
+import io.github.corentinferry.github.exception.GithubAccessDeniedException;
 import io.github.corentinferry.github.exception.GithubUnavailableException;
 import io.github.corentinferry.selection.RepositorySelection;
 import io.github.corentinferry.selection.RepositorySelectionRepository;
@@ -84,6 +85,23 @@ class GithubFailureLoggingTest {
 				.toList();
 		assertEquals(1, warnings.size());
 		assertEquals("GithubUnavailableException", warnings.get(0).getFormattedMessage());
+		assertNull(warnings.get(0).getThrowableProxy());
+		assertFalse(containsSentinel(appender.list, LEAK_MESSAGE));
+	}
+
+	@Test
+	void warnLogsOnlyExceptionClassNameForOtherGithubFailureWithoutSentinel() throws Exception {
+		when(githubApiClient.listPublicRepositories())
+				.thenThrow(new GithubAccessDeniedException(LEAK_MESSAGE));
+
+		mockMvc.perform(get("/api/projects"))
+				.andExpect(status().isBadGateway());
+
+		List<ILoggingEvent> warnings = appender.list.stream()
+				.filter(event -> event.getLevel() == Level.WARN)
+				.toList();
+		assertEquals(1, warnings.size());
+		assertEquals("GithubAccessDeniedException", warnings.get(0).getFormattedMessage());
 		assertNull(warnings.get(0).getThrowableProxy());
 		assertFalse(containsSentinel(appender.list, LEAK_MESSAGE));
 	}
