@@ -56,6 +56,10 @@ npm run preview
 
 Use `npm install` only to add an approved dependency; otherwise use `npm ci`.
 
+To see real projects in dev, start the backend first, then `npm run dev`: Vite
+proxies `/api` requests to `PORTFOLIO_BACKEND_URL`, which defaults to
+`http://127.0.0.1:8080` (see `.env.example`).
+
 ## Commands
 
 The commands are kept in AGENTS.md section 4; always use the exact commands

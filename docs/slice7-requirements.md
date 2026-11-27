@@ -153,3 +153,91 @@ projects service and dependency files are unchanged. No new dependency. The
   string through without any locale or timezone conversion.
 - Mutation proofs are replayed only after the owner commits, from a clean tree
   with an empty `git diff`; no mutation result is claimed in this section.
+
+## Slice 7 - Group C (project list in App)
+
+Scope: `ProjectList.vue`, mounted by `App.vue` under the heading, loads the
+projects through `getProjects()` and renders one `ProjectCard` per project. No
+new dependency, no style, no retry button. Decisions are recorded in
+`docs/decisions/0009-frontend-project-list.md`.
+
+Test names are written `ProjectList.spec.ts > <name>` or `App.spec.ts > <name>`.
+Component tests mock `../services/projects` (with `importOriginal`); `App.spec.ts`
+stubs `ProjectList` through `global.stubs`. The existing heading assertion is
+unchanged.
+
+### Proofs
+
+- **Red first**: `npm test` -> `Test Files 2 failed | 3 passed (5)`, `Tests 1
+  failed | 27 passed (28)`. `ProjectList.spec.ts` failed on
+  `Failed to resolve import "../components/ProjectList.vue"`, and
+  `App.spec.ts > mounts the project list` failed with `expected false to be
+  true`. The 27 existing tests stayed green.
+- **Green**: `npm test` -> `Test Files 5 passed (5)`, `Tests 35 passed (35)`.
+  `npm run type-check` exited 0. `npm run build` exited 0
+  (`✓ 74 modules transformed.`). The backend was measured at the start of the
+  group: `cd backend && ./mvnw test` -> `Tests run: 208, Failures: 0, Errors: 0,
+  Skipped: 0`, `BUILD SUCCESS`; it was not modified.
+- **Mutations**: after the owner's commit, one by one from a clean tree with
+  empty `git status --short` and `git diff`, edited with the edit tool, only the
+  concerned spec file run, restored with `git restore --worktree <path>`, then
+  `git status --short` and `git diff` empty again. Test numbers: 1 loading, 2
+  single request, 3 cards in order, 4 loading hidden after success, 5 empty, 6
+  error, 7 secret, 8 App mounts the list.
+
+| Id | Exact change | Expected red | Actual red | Main failure message |
+| --- | --- | --- | --- | --- |
+| M1 | loading `<p>` made unconditional, error `v-else-if` turned into `v-if` | 1, 4, 5, 6 | 1, 4, 5, 6 | test 4: `expected 'Chargement des projets…gammaalphabeta' not to contain 'Chargement des projets…'` |
+| M2 | `catch (error)` stores `(error as Error).message` and the alert shows it instead of the constant text | 6, 7 | 6, 7 | `expected 'SECRET_UPSTREAM_DETAIL' to be 'Impossible de charger les projets pou…'` |
+| M3 | success state set even for an empty array | 5 | 5 | `Unable to get [role="status"] within: <ul></ul>` |
+| M4 | `catch` sets `{ kind: 'loading' }` | 6, 7 | 6, 7 | `Unable to get [role="alert"] within: <p role="status">Chargement des projets…</p>` |
+| M5 | `role="alert"` replaced by `role="status"` on the error | 6, 7 | 6, 7 | `Unable to get [role="alert"] within: <p role="status">Impossible de charger les projets pour le moment.</p>` |
+| M6 | an extra `await getProjects()` before the existing call | 2 | 2 | `expected "vi.fn()" to be called 1 times, but got 2 times` |
+| M7 | `projects: [...projects].reverse()` | 3 | 3 | `expected [ { id: 2, name: 'beta', …(5) }, …(2) ] to deeply equal [ Array(3) ]` |
+| M8 | `<ProjectList />` removed from `App.vue` | 8 | 8 | `expected false to be true` (heading test still green) |
+
+M1 was first planned to turn only test 4 red. It also turned tests 1, 5 and 6
+red: tests 5 and 6 assert that the loading text is absent, and breaking the
+`v-if` chain renders the `<ul v-else>` during loading. The owner accepted the
+wider expected set, and the same reasoning set the expectations of M2, M4 and M5
+before they were played. Every actual set matched its expected set.
+
+- **Smoke test**: the owner started the backend from their own terminal with
+  their `.env`; the agent did not touch it. `ss -ltn 'sport = :8080'` showed
+  `LISTEN`. In one bounded command the agent started
+  `./node_modules/.bin/vite --host 127.0.0.1 --port 5173 --strictPort`, captured
+  its PID and checked it with `ps -p`, then: `http://127.0.0.1:5173/` ->
+  `200`; `http://127.0.0.1:5173/api/projects` -> `200`, an array of 1 element
+  (body not printed). `kill` then `wait` returned 143 (SIGTERM), the process
+  was gone and `ss -ltn 'sport = :5173'` listed no socket. This request made the
+  owner's backend call the real GitHub API, as decided by the owner for this
+  group.
+- **Browser check (manual, by the owner)**: the page showed 1 project card; the
+  Network tab showed one `GET /api/projects` request on port 5173 and no request
+  to `api.github.com`; the console showed no error. Status `MANUAL`: a check
+  performed by the owner and not replayed by the agent.
+
+### Requirements
+
+| Requirement | Test / command | Mutation | Status |
+| --- | --- | --- | --- |
+| Loading status is shown while the request is pending, with no list and no alert | `ProjectList.spec.ts > shows the loading status while projects are pending` | M1 | OBSERVE |
+| Projects are requested exactly once on mount | `ProjectList.spec.ts > requests projects exactly once on mount` | M6 | OBSERVE |
+| One `ProjectCard` per project, in API order, with its `project` prop | `ProjectList.spec.ts > renders one ProjectCard per project in api order with its project prop` | M7 | OBSERVE |
+| Loading status and alert are gone after a successful load | `ProjectList.spec.ts > hides the loading status after a successful load` | M1 | OBSERVE |
+| Empty array shows the empty message, with no list, no alert and no loading text | `ProjectList.spec.ts > shows the empty message and no list for an empty array` | M1, M3 | OBSERVE |
+| A failure shows the generic alert, with no list, no status and no loading text | `ProjectList.spec.ts > shows the generic alert and no list when loading fails` | M1, M2, M4, M5 | OBSERVE |
+| The rejection message never reaches the rendered HTML | `ProjectList.spec.ts > never displays the error message from the rejection` | M2, M4, M5 | OBSERVE |
+| `App` mounts `ProjectList`, stubbed in its test | `App.spec.ts > mounts the project list` | M8 | OBSERVE |
+| The heading is still rendered | `App.spec.ts > renders the portfolio heading` | none in this group | OBSERVE |
+| Vite serves the page and proxies `/api/projects` to the backend | smoke test above | none | OBSERVE |
+| The page renders the projects in a browser, calls only `/api/projects` on port 5173, never `api.github.com`, with no console error | manual browser check by the owner, described above | none | MANUAL |
+
+### LIMITE
+
+- The smoke test returned a single project, so it proves the proxy path, not the
+  ordering or several cards; those are proven by the tests above.
+- A request still pending when `ProjectList` unmounts is not cancelled, and no
+  test covers it.
+- The group A open point asked for a smoke test without any real GitHub call; the
+  owner changed this for group C and the real API was used.
