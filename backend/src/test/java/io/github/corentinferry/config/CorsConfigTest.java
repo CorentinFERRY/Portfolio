@@ -120,6 +120,22 @@ class CorsConfigTest {
 				.andExpectAll(securityHeaders());
 	}
 
+	@Test
+	void preflightOutsideApiPathsIsAnsweredEmptyWithoutCorsHeaders() throws Exception {
+		// Characterization: the CORS filter ends every preflight before the
+		// authorization rules, even on a path without CORS configuration, so this
+		// is an empty 200 instead of the deny-by-default 403. Without
+		// Access-Control-Allow-Origin the browser still blocks the real request.
+		mockMvc.perform(options("/internal")
+						.header("Origin", ALLOWED_ORIGIN)
+						.header("Access-Control-Request-Method", "GET"))
+				.andExpect(status().isOk())
+				.andExpect(content().string(""))
+				.andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
+				.andExpect(header().doesNotExist("Access-Control-Allow-Methods"))
+				.andExpectAll(securityHeaders());
+	}
+
 	private static ResultMatcher[] securityHeaders() {
 		return new ResultMatcher[] {
 				header().string("Content-Security-Policy", API_CSP),
