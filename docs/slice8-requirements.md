@@ -88,6 +88,20 @@ form-action 'none'`. "Header tests" below means the 8 tests of
 | A request without `Origin` is not treated as CORS | `CorsConfigTest#requestWithoutOriginIsNotTreatedAsCors`, `CorsDefaultConfigTest#requestWithoutOriginIsNotTreatedAsCors` | none: regression guards, red under no mutation | OBSERVE |
 | `allowCredentials(false)` is explicit | none | removing it is equivalent (`false` and `null` emit nothing), not played | DEDUIT |
 
+Differences from the announced red sets:
+
+- MB5: one more red value than announced, `http://[::1]:5173`, which had been
+  left out of the expected list.
+- MB6: one more red test than announced,
+  `CorsPropertiesTest#invalidOriginInEnvironmentVariableStopsStartupWithoutEchoingIt`,
+  which also goes through the environment variable.
+- MB9: same red tests as announced, but the preflights failed with 200 instead
+  of 403. This revealed the preflight behaviour characterized in group D1
+  (`CorsConfigTest#preflightOutsideApiPathsIsAnsweredEmptyWithoutCorsHeaders`).
+- MB11: one red value less than first expected: `*` stays green because the
+  path and scheme rules also reject it. The prediction was corrected before
+  the run.
+
 ## Group C - Document headers and raw HTML sink guard
 
 Document CSP: `default-src 'self'; script-src 'self'; style-src 'self';
