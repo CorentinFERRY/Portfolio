@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.context.ActiveProfiles;
@@ -44,6 +45,16 @@ class SecurityConfigTest {
 		// rules: without it the CSRF filter would reject it first and the test
 		// would not prove that only GET is allowed on /api/health.
 		mockMvc.perform(post("/api/health").with(csrf()))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void headHealthIsRejectedBecauseOnlyGetIsPermitted() throws Exception {
+		// Characterization: the permit rule matches GET exactly, so HEAD falls to
+		// deny by default even though Spring MVC would answer it with the GET
+		// handler. HEAD is a safe method, so no CSRF token is needed to reach the
+		// authorization rules.
+		mockMvc.perform(head("/api/health"))
 				.andExpect(status().isForbidden());
 	}
 

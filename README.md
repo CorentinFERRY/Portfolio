@@ -60,6 +60,17 @@ To see real projects in dev, start the backend first, then `npm run dev`: Vite
 proxies `/api` requests to `PORTFOLIO_BACKEND_URL`, which defaults to
 `http://127.0.0.1:8080` (see `.env.example`).
 
+`npm run dev` and `npm run preview` serve the document with a strict
+Content-Security-Policy, `Referrer-Policy: no-referrer`,
+`X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY`, defined in
+`frontend/security-headers.ts`. Responses relayed from `/api` keep the API's
+own headers.
+
+Vite 8.4 allows only one dev server per project (`vite:command-lock`): a second
+`npm run dev` for the same project stops at startup, even on another port.
+Stop the running dev server first. `npm run preview` is not blocked by a dev
+server.
+
 ## Commands
 
 The commands are kept in AGENTS.md section 4; always use the exact commands
@@ -201,6 +212,13 @@ reach the script through environment variables only. The reasoning is recorded i
   that is committed.
 - The browser never calls the GitHub API. Secrets and key files, local
   databases and `application-local.*` are ignored by `.gitignore`.
+- Every API response carries a Content-Security-Policy,
+  `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff` and
+  `X-Frame-Options: DENY`, errors included. Vite sends the same kind of headers
+  for the document in dev and preview (see the Frontend section).
+- CORS is closed by default: only the origins listed in
+  `PORTFOLIO_CORS_ALLOWED_ORIGINS` may read API responses cross-origin, with
+  `GET` only.
 
 The full security rules are in AGENTS.md section 9.
 
@@ -233,6 +251,15 @@ Required variables (documented with fake values in `.env.example` only):
 
 A non-positive cache TTL or maximum size stops startup instead of falling back
 to the default.
+
+Optional CORS variable:
+- `PORTFOLIO_CORS_ALLOWED_ORIGINS`: comma-separated browser origins allowed to
+  call the API cross-origin, for example
+  `https://portfolio.example,http://localhost:5173`. Defaults to empty: every
+  cross-origin request is rejected. Each origin is exact: `https`, or `http`
+  only for `localhost` and `127.0.0.1` with an explicit port. Wildcards, paths,
+  a trailing slash, a query or a fragment stop startup. The Vite dev proxy does
+  not need it, because proxied requests are same-origin.
 
 Never commit `.env` files. Tokens must never appear in frontend, logs, API responses, tests or Git history.
 
