@@ -116,6 +116,7 @@ Every commit message must follow Conventional Commits 1.0:
 - Scopes (examples): `backend`, `frontend`, `api`, `auth`, `github`, `cache`, `security`, `ci`, `deps`, `docs`, `repo`, `env`, `hooks`, `agents`, `readme`
 - Subject: English, imperative mood, description starting lowercase, no trailing period, 72 characters maximum for the whole subject line (`<type>[(scope)]: <description>`)
 - Breaking change: add an optional `!` after the type or scope and a `BREAKING CHANGE:` footer
+- Proposed commit commands contain no trailer (Co-Authored-By, Signed-off-by or other) unless I ask for one; the `BREAKING CHANGE:` footer required above is not affected.
 - One logical change per commit. Every commit leaves the build and the tests green.
 - Commit messages are checked by `.githooks/commit-msg` and by CI. A rejected message must be fixed, never bypassed (`--no-verify` is forbidden).
 
